@@ -1,0 +1,15 @@
+import Image from "next/image";
+import styles from "./page.module.css";
+import { redirect } from "next/navigation";
+
+export default function Home() {
+  redirect("/login");
+  return (
+    <div className={styles.page}>
+      <main className={styles.main}>
+        
+        
+      </main>
+    </div>
+  );
+}

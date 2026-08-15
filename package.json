@@ -1,0 +1,38 @@
+{
+  "name": "gs-bond-admin",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "permission": "node --env-file=.env src/app/scripts/seedPermissions.js"
+  },
+  "dependencies": {
+    "@microsoft/clarity": "^1.0.2",
+    "axios": "^1.13.6",
+    "bcryptjs": "^3.0.3",
+    "bootstrap": "^5.3.8",
+    "dotenv": "^17.3.1",
+    "firebase": "^12.12.1",
+    "firebase-admin": "^13.8.0",
+    "jsonwebtoken": "^9.0.3",
+    "next": "16.1.7",
+    "nodemailer": "^8.0.4",
+    "pg": "^8.20.0",
+    "pg-hstore": "^2.3.4",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "sequelize": "^6.37.8",
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.14",
+    "babel-plugin-react-compiler": "1.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.7",
+    "sequelize-cli": "^6.6.5"
+  }
+}
