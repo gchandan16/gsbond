@@ -9,6 +9,7 @@ import { categoryModel } from "./category.model";
 import { productModel } from "./product.model";
 import { followUpModel } from "./followUp.model"
 import {notificationModel} from "./notification.model.js"
+import { leadModel } from "./lead.model.js";
 
 // ✅ Cache initialized models so associations are only defined once
 let initializedModels = null;
@@ -26,6 +27,7 @@ export const getModels = async () => {
   const categorymodel = await categoryModel();
   const productmodel = await productModel();
   const followupmodel = await followUpModel();
+  const leadmodel = await leadModel();
 
   // ✅ Category <-> Product
   productmodel.belongsTo(categorymodel, { foreignKey: "categoryId", as: "category" });
@@ -52,6 +54,10 @@ export const getModels = async () => {
   quotemodel.hasMany(followupmodel, { foreignKey: "quote_id", as: "followups" });
   followupmodel.belongsTo(quotemodel, { foreignKey: "quote_id", as: "quote" });
 
+  // Lead <-> Quote
+  leadmodel.belongsTo(quotemodel, {foreignKey: "quoteId", as: "quote"});
+  quotemodel.hasMany(leadmodel, { foreignKey: "quoteId", as: "leads"});
+
 
   initializedModels = {
     usermodel,
@@ -62,7 +68,8 @@ export const getModels = async () => {
     logmodel,
     categorymodel,
     productmodel,
-    followupmodel
+    followupmodel,
+    leadmodel
   };
 
   return initializedModels;
@@ -78,5 +85,6 @@ export const models = {
   logModel,
   categoryModel,
   productModel,
-  notificationModel
+  notificationModel,
+  leadModel
 };

@@ -30,6 +30,7 @@ async function getPermissions() {
                     category: { view: true, create: true, edit: true, delete: true },
                     products: { view: true, create: true, edit: true, delete: true },
                     assignedQuote: { view: true, create: true, edit: true, delete: true },
+                    leads: { view: true, create: true, edit: true, delete: true },
                 },
                 status: true,
             },

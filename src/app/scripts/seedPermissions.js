@@ -61,6 +61,8 @@ const seedPermissions = async () => {
           assignedQuote: { view: true, create: true, edit: true, delete: true },
           category: { view: true, create: true, edit: true, delete: true },
           products: { view: true, create: true, edit: true, delete: true },
+          leads: { view: true, create: true, edit: true, delete: true },
+          
         },
         status: true,
       },
