@@ -8,7 +8,6 @@ import { sendNotification } from "../../lib/firebase/sendNotification"
 import { validateRequest } from "../../utils"
 import { getModels } from "../../models";
 import { models } from "../../models";
-import { ApiError } from "next/dist/server/api-utils";
 import { Op, Sequelize } from "sequelize";
 
 
@@ -22,141 +21,544 @@ export const POST = asyncHandler(async (req) => {
     // validate request
     const user = validateRequest(req, "assignedQuote", "create");
 
-    const { quoteassignmodel, quotemodel, quotehistorymodel, logmodel, usermodel } = await getModels();
+    const {
+        quoteassignmodel,
+        quotemodel,
+        quotehistorymodel,
+        logmodel,
+        usermodel
+    } = await getModels();
 
-    if (!quoteassignmodel) throw new ApiError("Quote Assign Model not intialised", 400);
-
+    if (!quoteassignmodel) {
+        throw new AppError("Quote Assign Model not initialised", 400);
+    }
 
     const data = await req.formData();
+
     const operatorsRaw = data.get("operators");
+    const dailyAssignmentsRaw = data.get("dailyAssignments");
     const quotesRaw = data.get("quotes");
 
     const otherDetails = data.get("otherDetails");
-    const isReassign = data.get("isReassign") === "true"; // ✅ convert to boolean
+    const isReassign = data.get("isReassign") === "true";
     const specialRemark = data.get("specialRemark");
 
-    // console.log("operatorsRaw", operatorsRaw, "quotesRaw", quotesRaw);
-
     let operators = [];
+    let dailyAssignments = [];
     let quotes = [];
 
     try {
-        operators = JSON.parse(operatorsRaw);
-        quotes = JSON.parse(quotesRaw);
+
+        if (operatorsRaw) {
+            operators = JSON.parse(operatorsRaw);
+        }
+
+        if (dailyAssignmentsRaw) {
+            dailyAssignments = JSON.parse(dailyAssignmentsRaw);
+        }
+
+        if (quotesRaw) {
+            quotes = JSON.parse(quotesRaw);
+        }
+
     } catch (err) {
-        throw new Error("Invalid operators or quotes format");
+
+        throw new AppError(
+            "Invalid operators, dailyAssignments or quotes format",
+            400
+        );
+
     }
 
-    const files = data.getAll("specialImages"); console.log("FILES:", files.length);
+    // -----------------------------------------
+    // Basic validation
+    // -----------------------------------------
+
+    if (!Array.isArray(quotes) || quotes.length === 0) {
+        throw new AppError("Please select at least one quote", 400);
+    }
+
+    // -----------------------------------------
+    // Files
+    // -----------------------------------------
+
+    const files = data.getAll("specialImages");
+
+    console.log("FILES:", files.length);
 
     const fs = require("fs");
     const path = require("path");
 
-    const uploadDir = path.join(process.cwd(), "public/uploads");
+    const uploadDir = path.join(
+        process.cwd(),
+        "public/uploads"
+    );
+
     if (!fs.existsSync(uploadDir)) {
         fs.mkdirSync(uploadDir, { recursive: true });
     }
+
     const imagePaths = [];
+
     for (const file of files) {
-        if (!file || !file.type?.startsWith("image/")) continue;
+
+        if (!file || !file.type?.startsWith("image/")) {
+            continue;
+        }
 
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
 
         const fileName = `${Date.now()}-${file.name}`;
-        const filePath = path.join(uploadDir, fileName);
+
+        const filePath = path.join(
+            uploadDir,
+            fileName
+        );
 
         fs.writeFileSync(filePath, buffer);
 
         imagePaths.push(`/uploads/${fileName}`);
     }
-    const operator = await usermodel.findOne({
-        where: {
-            id: operators[0].id,
-        },
-        attributes: ["id", "email", "fcmToken", "os", "operatorPercentage"],
-    })
+
+    // -----------------------------------------
+    // Get quote
+    // -----------------------------------------
 
     const quote = await quotemodel.findOne({
         where: {
-            id: quotes[0],
+            id: quotes[0]
         }
-    })
+    });
 
-    const amount = parseFloat(quote?.quotatedAmount) || 0;
-    const percentage = parseFloat(operator?.operatorPercentage) || 0;
+    if (!quote) {
+        throw new AppError("Quote not found", 404);
+    }
 
-    let operatorAmount = (amount * percentage) / 100;
-    operatorAmount = Number(operatorAmount.toFixed(2));
+    // -----------------------------------------
+    // Check Daily
+    // -----------------------------------------
+
+    const isDaily =
+        quote?.cleaningType
+            ?.trim()
+            ?.toLowerCase() === "daily";
+
+    console.log("Cleaning Type:", quote?.cleaningType);
+    console.log("Is Daily:", isDaily);
+
+    // -----------------------------------------
+    // ARRAYS
+    // -----------------------------------------
 
     let arr = [];
-    for (let i = 0; i < operators.length; i++) {
-        for (let j = 0; j < quotes.length; j++) {
-            arr.push(
-                {
-                    user_id: operators[i].id,
-                    status: true,
-                    quote_id: quotes[j],
-                    otherDetails: otherDetails || "",
-                    jobStatus: isReassign === true ? "Reclean" : "Fresh",
-                    specialRemark: specialRemark,
-                    specialImages: imagePaths,
-                    operatorAmount: operatorAmount,
-                }
+    let assignedOperators = [];
+
+    // =================================================
+    // DAILY
+    // =================================================
+
+    if (isDaily) {
+
+        if (
+            !Array.isArray(dailyAssignments) ||
+            dailyAssignments.length === 0
+        ) {
+            throw new AppError(
+                "Please provide daily assignments",
+                400
+            );
+        }
+
+        // Validate every row
+        for (const assignment of dailyAssignments) {
+
+            if (
+                !assignment?.userId ||
+                !assignment?.day
+            ) {
+                throw new AppError(
+                    "Each daily assignment must have user and day",
+                    400
+                );
+            }
+        }
+
+        // Get all selected users
+        const userIds = [
+            ...new Set(
+                dailyAssignments.map(
+                    item => Number(item.userId)
+                )
             )
+        ];
+
+        const dailyUsers = await usermodel.findAll({
+            where: {
+                id: {
+                    [Op.in]: userIds
+                }
+            },
+            attributes: [
+                "id",
+                "email",
+                "fcmToken",
+                "os",
+                "operatorPercentage"
+            ]
+        });
+
+        if (dailyUsers.length !== userIds.length) {
+            throw new AppError(
+                "One or more selected operators were not found",
+                404
+            );
+        }
+
+        // Create QuoteAssign for each day
+        for (const assignment of dailyAssignments) {
+
+            const assignedUser = dailyUsers.find(
+                u =>
+                    Number(u.id) ===
+                    Number(assignment.userId)
+            );
+
+            if (!assignedUser) {
+                throw new AppError(
+                    `Operator ${assignment.userId} not found`,
+                    404
+                );
+            }
+
+            const amount =
+                parseFloat(
+                    quote?.quotatedAmount
+                ) || 0;
+
+            const percentage =
+                parseFloat(
+                    assignedUser?.operatorPercentage
+                ) || 0;
+
+            let operatorAmount =
+                (amount * percentage) / 100;
+
+            operatorAmount =
+                Number(operatorAmount.toFixed(2));
+
+            arr.push({
+                user_id: Number(assignment.userId),
+
+                status: true,
+
+                quote_id: quotes[0],
+
+                otherDetails:
+                    otherDetails || "",
+
+                jobStatus:
+                    isReassign === true
+                        ? "Reclean"
+                        : "Fresh",
+
+                specialRemark:
+                    specialRemark,
+
+                specialImages:
+                    imagePaths,
+
+                operatorAmount:
+                    operatorAmount,
+
+                // IMPORTANT
+                recurringDay:
+                    assignment.day
+            });
+
+            assignedOperators.push({
+                user: assignedUser,
+                day: assignment.day
+            });
+        }
+
+    }
+
+    // =================================================
+    // NON DAILY
+    // =================================================
+
+    else {
+
+        if (
+            !Array.isArray(operators) ||
+            operators.length === 0 ||
+            !operators[0]?.id
+        ) {
+            throw new AppError(
+                "Please select an operator",
+                400
+            );
+        }
+
+        // Existing behavior
+        const operator = await usermodel.findOne({
+            where: {
+                id: operators[0].id
+            },
+            attributes: [
+                "id",
+                "email",
+                "fcmToken",
+                "os",
+                "operatorPercentage"
+            ]
+        });
+
+        if (!operator) {
+            throw new AppError(
+                "Operator not found",
+                404
+            );
+        }
+
+        const amount =
+            parseFloat(
+                quote?.quotatedAmount
+            ) || 0;
+
+        const percentage =
+            parseFloat(
+                operator?.operatorPercentage
+            ) || 0;
+
+        let operatorAmount =
+            (amount * percentage) / 100;
+
+        operatorAmount =
+            Number(operatorAmount.toFixed(2));
+
+        for (let i = 0; i < operators.length; i++) {
+
+            const currentOperator =
+                await usermodel.findOne({
+                    where: {
+                        id: operators[i].id
+                    },
+                    attributes: [
+                        "id",
+                        "email",
+                        "fcmToken",
+                        "os",
+                        "operatorPercentage"
+                    ]
+                });
+
+            if (!currentOperator) {
+                continue;
+            }
+
+            const currentPercentage =
+                parseFloat(
+                    currentOperator?.operatorPercentage
+                ) || 0;
+
+            let currentOperatorAmount =
+                (amount * currentPercentage) / 100;
+
+            currentOperatorAmount =
+                Number(
+                    currentOperatorAmount.toFixed(2)
+                );
+
+            assignedOperators.push({
+                user: currentOperator,
+                day: null
+            });
+
+            for (let j = 0; j < quotes.length; j++) {
+
+                arr.push({
+                    user_id: operators[i].id,
+
+                    status: true,
+
+                    quote_id: quotes[j],
+
+                    otherDetails:
+                        otherDetails || "",
+
+                    jobStatus:
+                        isReassign === true
+                            ? "Reclean"
+                            : "Fresh",
+
+                    specialRemark:
+                        specialRemark,
+
+                    specialImages:
+                        imagePaths,
+
+                    operatorAmount:
+                        currentOperatorAmount
+                });
+            }
         }
     }
 
+    // -----------------------------------------
+    // Make sure records exist
+    // -----------------------------------------
 
+    if (arr.length === 0) {
+        throw new AppError(
+            "No quote assignments were created",
+            400
+        );
+    }
 
+    // -----------------------------------------
+    // Update quote
+    // -----------------------------------------
 
     quote.scheduledDate = otherDetails;
-    quote.jobStatus = 'Assigned';
+    quote.jobStatus = "Assigned";
+
     await quote.save();
+
+    // -----------------------------------------
+    // Create QuoteAssign records
+    // -----------------------------------------
 
     await quoteassignmodel.bulkCreate(arr);
 
+    // -----------------------------------------
+    // Quote history
+    // -----------------------------------------
+
+    const operatorNames =
+        assignedOperators
+            .map(item => {
+                if (item.day) {
+                    return `${item.user.email} (${item.day})`;
+                }
+
+                return item.user.email;
+            })
+            .join(", ");
+
     await quotehistorymodel.create({
         quote_id: quotes[0],
+
         user_id: user.id,
+
         action_type: "JOB_Assigned",
-        remark: `Job Assigned to ${operators[0].email} with status ${isReassign === true ? "Reclean" : "Fresh"}`
-    })
 
+        remark:
+            `Job Assigned to ${operatorNames} with status ${
+                isReassign === true
+                    ? "Reclean"
+                    : "Fresh"
+            }`
+    });
 
+    // -----------------------------------------
+    // Authorization token
+    // -----------------------------------------
 
-    const authToken = (req.headers.get("Authorisation") || req.headers.get("authorization")).split(' ')[1];
+    const authHeader =
+        req.headers.get("Authorisation") ||
+        req.headers.get("authorization");
 
+    const authToken =
+        authHeader
+            ? authHeader.split(" ")[1]
+            : null;
 
-    // if(operator.os != "iOS"){
-    await sendNotification(
-        "New Job",
-        `${operator.email} Gets a New Job`,
-        [{ fcmToken: operator.fcmToken }]
-    );
-    // }
-    // else{
-    //await sendApnsRequest(operator.fcmToken, "New Job", `${operator.email} Gets a New Job`,authToken )
-    // }
+    // -----------------------------------------
+    // Notifications
+    // -----------------------------------------
+
+    const notificationmodel =
+        await models.notificationModel();
+
+    // Send notification to every assigned operator
+    for (const item of assignedOperators) {
+
+        const operator = item.user;
+
+        try {
+
+            await sendNotification(
+                "New Job",
+
+                `${operator.email} Gets a New Job`,
+
+                [
+                    {
+                        fcmToken:
+                            operator.fcmToken
+                    }
+                ]
+            );
+
+        } catch (notificationError) {
+
+            console.error(
+                "FCM Notification Error:",
+                notificationError
+            );
+
+        }
+
+        await notificationmodel.create({
+
+            user_id:
+                operator.id,
+
+            title:
+                "NEW JOB",
+
+            description:
+                `${operator.email} got new Job of Type ${
+                    isReassign === true
+                        ? "Reclean"
+                        : "Fresh"
+                }`
+        });
+    }
+
+    // -----------------------------------------
+    // Activity log
+    // -----------------------------------------
 
     await logmodel.create({
-        userId: user.id,
-        role: user.role,
-        name: user.name,
-        email: user.email,
-        activity: "Quote Assigned",
-    })
 
-    const notificationmodel = await models.notificationModel();
+        userId:
+            user.id,
 
-    await notificationmodel.create({
-        user_id: operator.id,
-        title: "NEW JOB",
-        description: `${operator.email} got new Job of Type ${isReassign === true ? "Reclean" : "Fresh"}`,
-    })
+        role:
+            user.role,
 
-    return successResponse("Quotes Assigned successfully", 200);
-})
+        name:
+            user.name,
+
+        email:
+            user.email,
+
+        activity:
+            "Quote Assigned"
+    });
+
+    // -----------------------------------------
+    // Response
+    // -----------------------------------------
+
+    return successResponse(
+        "Quotes Assigned successfully",
+        200
+    );
+});
 
 
 export const GET = asyncHandler(async (req) => {
@@ -178,7 +580,7 @@ export const GET = asyncHandler(async (req) => {
 
     const user = validateRequest(req, "assignedQuote", "view");
     const { quotemodel, usermodel, quoteassignmodel } = await getModels();
-    if (!quoteassignmodel) throw new ApiError("Quote Assign model not intialised", 400);
+    if (!quoteassignmodel) throw new AppError("Quote Assign model not intialised", 400);
 
 
     const url = new URL(req.url);

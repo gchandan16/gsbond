@@ -50,6 +50,10 @@ async function getQuotes() {
         shareToken:user?.shareToken || '',
         operators: user.quoteAssign,        // operators whom work on this job
         suburbs:user.suburbs,
+        quotationType:user.quotationType || '',
+        cleaningType:user.cleaningType || '',
+        source:user.source || '',
+        otherDetails:user.otherDetails || ''
     }));
 }
 

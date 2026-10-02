@@ -69,16 +69,38 @@ export const GET = asyncHandler(async (req) => {
     }
 
     const data = await productmodel.findAll({
-        attributes:["id","name","createdAt","price","categoryId","status","gst","description","base"],
-        include:[{
-            model:categorymodel,
-            as:"category",
-            attributes:["id","name","description"]
-        }],
-        limit:limit,
-        offset:offset,
-        where,
-    })
+    attributes: [
+        "id",
+        "name",
+        "createdAt",
+        "price",
+        "categoryId",
+        "status",
+        "gst",
+        "description",
+        "base"
+    ],
+
+    include: [
+        {
+            model: categorymodel,
+            as: "category",
+            attributes: [
+                "id",
+                "name",
+                "description"
+            ],
+            where: {
+                name: {
+                    [Op.ne]: "External"
+                }
+            }
+        }
+    ],
+
+    limit: limit,
+    offset: offset
+});
 
     if(!data || data.length == 0) throw new ApiError("No Products Found!!!",400);
     

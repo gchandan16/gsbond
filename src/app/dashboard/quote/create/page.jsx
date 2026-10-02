@@ -63,7 +63,7 @@ async function getServices() {
 async function getQuoteConfig() {
     // Replace with your real API endpoint
     return {
-        taxRate: 0,        // GST 18%
+         taxRate: Number(process.env.NEXT_PUBLIC_GST_RATE || 0),
         discountOptions: [0, 5, 10, 15, 20],
     };
 }

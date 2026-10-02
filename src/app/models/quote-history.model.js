@@ -26,7 +26,7 @@ export const quoteHistoryModel = async () => {
                 allowNull: false,
             },
             remark: {
-                type: DataTypes.STRING,
+                 type: DataTypes.TEXT,
             },
             ip_address: {
                 type: DataTypes.STRING,

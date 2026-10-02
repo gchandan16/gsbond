@@ -18,13 +18,19 @@ export const POST = asyncHandler(async (req, res) => {
     const { quotehistorymodel } = await getModels();
 
     const form = await req.json();
+    console.log("INVOICE DATA:", form.data);
+    console.log("QUOTE ASSIGN ID:", form.data?.quoteAssignId);
+    const quoteAssignId = form.data?.quoteAssignId
+        ? Number(form.data.quoteAssignId)
+        : null;
 
     // console.log(form);
 
     const saveInvoice = await invoicemodel.create({
         QuoteId: form.data.id,
+        QuoteAssignId: quoteAssignId,
         QuoteData: JSON.stringify(form.data),
-    })
+    });
 
     if (!saveInvoice) {
         errorResponse("Quote invoice save failed");
@@ -38,7 +44,11 @@ export const POST = asyncHandler(async (req, res) => {
     })
 
 
-    return successResponse("Quote Invoice Generated successfully", 200);
+    return successResponse(
+        saveInvoice,
+        "Quote Invoice Generated successfully",
+        200
+    );
 
 })
 

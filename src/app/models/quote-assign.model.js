@@ -68,7 +68,11 @@ export const quoteAssignModel = async () => {
             },
             operatorAmount:{
                 type:DataTypes.STRING,
-            }
+            },
+            recurringDay: {
+                type: DataTypes.STRING,
+                allowNull: true,
+            },
         },
     );
 

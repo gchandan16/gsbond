@@ -3,7 +3,7 @@ import { AppError } from "../../../../utils/errorHandler";
 import { successResponse } from "../../../../utils/response";
 import { createOrGetExternalProducts } from "../../../../utils/externalProduct";
 import { getModels } from "../../../../models";
-
+import { Op } from "sequelize";
 export const GET = asyncHandler(async (req, { params }) => {
 
     console.log("===== EXTERNAL API START =====");
@@ -50,47 +50,68 @@ export const GET = asyncHandler(async (req, { params }) => {
                                         productmodel
                                     );
 
-  // 3. Fetch Products by IDs
-     const products =
-        await productmodel.findAll({
+  // 3. Fetch Products by IDs &Get External category
 
+const externalCategory = await categorymodel.findOne({
+    where: {
+        name: "External"
+    },
+    attributes: ["id"]
+});
+
+
+// 4. Fetch current lead products + all non-External products
+const products = await productmodel.findAll({
+
+    attributes: [
+        "id",
+        "name",
+        "createdAt",
+        "price",
+        "categoryId",
+        "status",
+        "gst",
+        "description",
+        "base"
+    ],
+
+    where: {
+        status: true,
+
+        [Op.or]: [
+            // Current lead products
+            {
+                id: {
+                    [Op.in]: productIds
+                }
+            },
+
+            // All products whose category is NOT External
+            {
+                categoryId: {
+                    [Op.ne]: externalCategory.id
+                }
+            }
+        ]
+    },
+
+    order: [
+        ["id", "DESC"]
+    ],
+
+    include: [
+        {
+            model: categorymodel,
+            as: "category",
             attributes: [
                 "id",
                 "name",
-                "createdAt",
-                "price",
-                "categoryId",
-                "status",
-                "gst",
-                "description",
-                "base"
-            ],
-
-            where: {
-                id: productIds,
-                status: true
-            },
-
-            order: [
-                ["id", "DESC"]
-            ],
-
-            include: [
-                {
-                    model: categorymodel,
-
-                    as: "category",
-
-                    attributes: [
-                        "id",
-                        "name",
-                        "description"
-                    ]
-                }
+                "description"
             ]
+        }
+    ]
 
-        });
-
+});
 
     console.log(
         "FINAL PRODUCTS:",

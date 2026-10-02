@@ -975,7 +975,10 @@ const bondCleaningDetails =externalData.bondCleaningDetails || {};
                             {fmt(subtotal)}
                         </span>
                     </div>
-
+                    <div className="d-flex justify-content-between small text-secondary">
+                                            { <span>GST ({config.taxRate}%)</span> }
+                                            { <span className="font-monospace">+ {fmt(taxAmt)}</span> }
+                     </div>
                     <hr className="text-primary opacity-25 my-1" />
 
                     {/* Total */}

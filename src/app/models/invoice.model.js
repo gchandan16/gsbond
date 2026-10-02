@@ -29,6 +29,11 @@ export const invoiceModel = async () => {
                 type: DataTypes.STRING,
                 allowNull: false,
                 defaultValue:Date.now().toLocaleString()
+            },
+            QuoteAssignId: {
+                type: DataTypes.INTEGER,
+                allowNull: true,
+                defaultValue: null,
             }
         })
 

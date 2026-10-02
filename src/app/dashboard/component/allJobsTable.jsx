@@ -403,7 +403,7 @@ function UpdateModal({ quote, onClose, onSave, Services, token }) {
                                 <label className="form-label small fw-semibold text-dark mb-1">Calculated Amount ($)</label>
                                 <div className="input-group">
                                     <span className="input-group-text bg-primary bg-opacity-10 text-primary border-end-0 fw-bold">$</span>
-                                    <input type="number" disabled className="form-control border-start-0 rounded-end-3 font-monospace" value={form.calculatedAmount} disabled />
+                                    <input type="number" disabled className="form-control border-start-0 rounded-end-3 font-monospace" value={form.calculatedAmount}  />
                                 </div>
                             </div>
 
@@ -458,7 +458,6 @@ function UpdateModal({ quote, onClose, onSave, Services, token }) {
                                         disabled
                                         className="form-control border-start-0 rounded-end-3 font-monospace"
                                         value={form.dueAmount || 0}
-                                        disabled
                                     />
                                 </div>
                             </div>

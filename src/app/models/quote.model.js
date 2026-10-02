@@ -112,6 +112,25 @@ export const quoteModel = async () => {
             suburbs: {
                 type:DataTypes.STRING,
             },
+            suburbs: {
+                type: DataTypes.STRING,
+            },
+
+            quotationType: {
+                type: DataTypes.STRING,
+                allowNull: true,
+            },
+
+            cleaningType: {
+                type: DataTypes.STRING,
+                allowNull: true,
+            },
+
+            source: {
+                type: DataTypes.STRING,
+                allowNull: true,
+            },
+
         })
 
 

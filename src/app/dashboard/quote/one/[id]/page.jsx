@@ -40,6 +40,20 @@ function StatusBadge({ label }) {
   );
 }
 
+
+const formatJobDate = (dateString) => {
+    if (!dateString) return "Date unavailable";
+
+    const [month, day, year] = dateString.split("/");
+
+    const date = new Date(year, month - 1, day);
+
+    return date.toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+    });
+};
 // ── SectionTitle ──────────────────────────────────────────────────────────────
 function SectionTitle({ children }) {
   return (
@@ -108,7 +122,9 @@ export default function QuoteDetailPage() {
   const [error, setError] = useState(null);
 
   const [serviceSearch, setServiceSearch] = useState("");
-
+  const [quoteAssigns, setQuoteAssigns] = useState([]);
+  const [selectedQuoteAssignId, setSelectedQuoteAssignId] = useState("");
+  const [loadingJobs, setLoadingJobs] = useState(false);
 
   const params = useParams();
   const id = params?.id;
@@ -116,6 +132,7 @@ export default function QuoteDetailPage() {
   const getData = async () => {
     try {
       setLoading(true);
+      setLoadingJobs(true);
       setError(null);
       const token = localStorage.getItem("authToken");
       const response = await axios.get(
@@ -125,6 +142,8 @@ export default function QuoteDetailPage() {
       console.log("response", response);
       if (!response.data.success) throw new Error(response.data.message || "Failed to load quote");
       setForm(response.data.data);
+      console.log("QUOTATION TYPE:", response.data.data.quotationType);
+      console.log("FULL FORM:", response.data.data);
 
       const res = await axios.get(`${process.env.NEXT_PUBLIC_BACKEND_URL}/product`,
         {
@@ -144,10 +163,57 @@ export default function QuoteDetailPage() {
     }
   };
 
+
+  const getCompletedJobs = async () => {
+    try {
+        setLoadingJobs(true);
+
+        const token = localStorage.getItem("authToken");
+
+        console.log("Fetching completed jobs for Quote ID:", id);
+
+        const response = await axios.get(
+            `${process.env.NEXT_PUBLIC_BACKEND_URL}/quote-assign/${id}`,
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            }
+        );
+
+        console.log("JOB API STATUS:", response.status);
+        console.log("JOB API RESPONSE:", response.data);
+
+        const jobs = response.data?.data;
+
+        console.log("JOBS:", jobs);
+        console.log("IS ARRAY:", Array.isArray(jobs));
+
+        if (Array.isArray(jobs)) {
+            setQuoteAssigns(jobs);
+        } else {
+            console.error("Job data is not an array:", jobs);
+            setQuoteAssigns([]);
+        }
+
+    } catch (error) {
+        console.error("FAILED TO LOAD JOBS:", error);
+        setQuoteAssigns([]);
+    } finally {
+        setLoadingJobs(false);
+    }
+};
+
   useEffect(() => {
     if (!id) return;
     getData();
   }, [id]);
+
+  useEffect(() => {
+    if (id) {
+        getCompletedJobs();
+    }
+}, [id]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -572,29 +638,63 @@ export default function QuoteDetailPage() {
 
   const handleInvoiceDownload = async () => {
     try {
-      const quote = buildInvoiceFromState();
-      console.log(quote);
 
-      await generateInvoicePDF(quote);
 
-      const token = localStorage.getItem("authToken");
+      // Recurring quote must have a completed job selected
+        if (
+          form?.quotationType?.trim()?.toLowerCase() === "recurring" &&
+          !selectedQuoteAssignId
+        ) {
+          alert("Please select a completed job before creating the invoice.");
+          return;
+        }
 
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/invoice`,
-        { data: form }, // ✅ body
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        } // ✅ config
-      );
+        setSaving(true);
+        const token = localStorage.getItem("authToken");
+            console.log("Creating invoice...");
 
-      if (!response.data.success) {
-        throw new Error("Something went wrong");
-      }
+            const response = await axios.post(
+            `${process.env.NEXT_PUBLIC_BACKEND_URL}/invoice`,
+                  { 
+                    data: {
+                      ...form,
+                      quoteAssignId: selectedQuoteAssignId
+                        ? Number(selectedQuoteAssignId)
+                        : null,
+                    },
+                  }, // ✅ body
+                  {
+                    headers: {
+                      Authorization: `Bearer ${token}`,
+                    },
+                  } // ✅ config
+               );  
 
-    } catch (error) {
-      console.error(error);
+          console.log("INVOICE RESPONSE:", response.data);
+
+        if (!response.data.success) {
+          throw new Error(
+            response.data.message || "Failed to create invoice"
+          );
+        }
+
+            // Only generate PDF after successful invoice creation
+             const quote = buildInvoiceFromState();
+
+             await generateInvoicePDF(quote);
+
+             setSaved(true);
+
+             setTimeout(() => {setSaved(false);}, 2500);
+
+   }
+      catch (error) {
+      console.error("Invoice creation error:", error);
+
+      console.log( error.response?.data?.message ||error.message || "Failed to create invoice");
+    }
+    finally {
+      setSaving(false);
     }
   };
 
@@ -618,6 +718,30 @@ export default function QuoteDetailPage() {
             </div>
           ))}
         </div>
+{/* ── Job Selection ─────────────────────────────────────── */}
+{form?.quotationType?.trim()?.toLowerCase() === "recurring" && (
+    <div className="bg-white border rounded-3 p-4 mb-3">
+        <SectionTitle>Select Completed Job</SectionTitle>
+
+        <select
+    className="form-select form-select-sm rounded-3"
+    value={selectedQuoteAssignId}
+    onChange={(e) => setSelectedQuoteAssignId(e.target.value)}
+    disabled={loadingJobs}
+>
+    <option value="">
+        {loadingJobs ? "Loading completed jobs..." : "Select a completed job"}
+    </option>
+
+    {quoteAssigns.map((job) => (
+        <option key={job.id} value={job.id}>
+            {formatJobDate(job.time)} — Job #{job.id} (Completed)
+        </option>
+    ))}
+</select>
+    </div>
+)}
+
 
         {/* ── Client information ───────────────────────────────────────────── */}
         <div className="bg-white border rounded-3 p-4 mb-3">

@@ -22,6 +22,7 @@ const CHILD_PERM_MAP = {
     "/dashboard/services/category/all-category": { module: "category", action: "view" },
     "/dashboard/services/service/create": { module: "products", action: "create" },
     "/dashboard/services/service/all-service": { module: "products", action: "view" },
+     "/dashboard/leads/externalleads": { module: "leads",action: "view"}
    
 };
 

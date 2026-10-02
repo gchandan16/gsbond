@@ -137,187 +137,656 @@ function AssignQuoteModal({ quote, onClose, onSave, users }) {
     const [form, setForm] = useState({
         assignedUser: null,
         scheduleDate: "",
+        dailyAssignments: [
+            {
+                userId: "",
+                day: ""
+            }
+        ],
         specialRemark: "",
         specialImages: [],
     });
+
     const [dropdownOpen, setDropdownOpen] = useState(false);
 
+    const isDaily =
+        quote?.cleaningType?.trim()?.toLowerCase() === "daily";
+
     return (
-        <div className="modal fade show d-block" tabIndex="-1" style={{ background: "rgba(0,0,0,0.45)" }}>
+        <div
+            className="modal fade show d-block"
+            tabIndex="-1"
+            style={{ background: "rgba(0,0,0,0.45)" }}
+        >
             <div className="modal-dialog modal-dialog-centered">
                 <div className="modal-content border-0 rounded-4 shadow-lg">
 
-                    {/* Header */}
+                    {/* ================= HEADER ================= */}
                     <div className="modal-header border-bottom border-primary border-opacity-25 px-4 py-3">
+
                         <div className="d-flex align-items-center gap-3">
-                            <div className="d-flex align-items-center justify-content-center bg-primary bg-opacity-10 text-primary rounded-3"
-                                style={{ width: 38, height: 38, fontSize: 18 }}>
+
+                            <div
+                                className="d-flex align-items-center justify-content-center bg-primary bg-opacity-10 text-primary rounded-3"
+                                style={{
+                                    width: 38,
+                                    height: 38,
+                                    fontSize: 18
+                                }}
+                            >
                                 👷
                             </div>
+
                             <div>
-                                <h6 className="modal-title fw-bold text-dark mb-0">Assign Job</h6>
-                                <p className="text-secondary mb-0 small">Client · {quote?.clientName}</p>
+                                <h6 className="modal-title fw-bold text-dark mb-0">
+                                    Assign Job
+                                </h6>
+
+                                <p className="text-secondary mb-0 small">
+                                    Client · {quote?.clientName}
+                                </p>
                             </div>
+
                         </div>
-                        <button type="button" className="btn-close" onClick={onClose} />
+
+                        <button
+                            type="button"
+                            className="btn-close"
+                            onClick={onClose}
+                        />
+
                     </div>
 
-                    {/* Body */}
+
+                    {/* ================= BODY ================= */}
                     <div className="modal-body px-4 py-4">
+
                         <div className="row g-3">
 
-                            {/* Schedule Date */}
+                            {/* ================= SCHEDULE DATE ================= */}
                             <div className="col-12">
+
                                 <label className="form-label small fw-semibold text-dark mb-1">
-                                    Schedule Date <span className="text-danger">*</span>
+                                    Schedule Date{" "}
+                                    <span className="text-danger">*</span>
                                 </label>
+
                                 <input
                                     type="date"
                                     className="form-control rounded-3"
                                     value={form.scheduleDate}
                                     min={new Date().toISOString().slice(0, 10)}
-                                    onChange={(e) => setForm({ ...form, scheduleDate: e.target.value })}
+                                    onChange={(e) =>
+                                        setForm({
+                                            ...form,
+                                            scheduleDate: e.target.value
+                                        })
+                                    }
                                 />
+
                             </div>
 
-                            {/* Assign User — custom dropdown */}
-                            <div className="col-12">
-                                <label className="form-label small fw-semibold text-dark mb-1">
-                                    Assign To <span className="text-danger">*</span>
-                                </label>
 
-                                <div className="position-relative">
-                                    {/* Trigger */}
-                                    <button
-                                        type="button"
-                                        className="form-select rounded-3 text-start d-flex align-items-center justify-content-between"
-                                        style={{ fontSize: 14 }}
-                                        onClick={() => setDropdownOpen((p) => !p)}
-                                    >
-                                        {form.assignedUser ? (
-                                            <div className="d-flex align-items-center gap-2">
-                                                <div
-                                                    className="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold flex-shrink-0"
-                                                    style={{ width: 24, height: 24, fontSize: 10 }}
-                                                >
-                                                    {form.assignedUser.name?.slice(0, 1).toUpperCase()}
-                                                </div>
-                                                <span className="text-dark">{form.assignedUser.name}</span>
-                                                <span className="badge bg-primary bg-opacity-10 text-primary rounded-pill" style={{ fontSize: 10 }}>
-                                                    {form.assignedUser.role}
-                                                </span>
-                                            </div>
-                                        ) : (
-                                            <span className="text-secondary">— Select a user —</span>
-                                        )}
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-                                            strokeLinecap="round" strokeLinejoin="round"
-                                            style={{ transform: dropdownOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s", flexShrink: 0 }}>
-                                            <polyline points="6 9 12 15 18 9" />
-                                        </svg>
-                                    </button>
+                            {/* ================================================= */}
+                            {/* DAILY ASSIGNMENT */}
+                            {/* ================================================= */}
 
-                                    {dropdownOpen && (
-                                        <>
-                                            {/* Backdrop */}
+                            {isDaily ? (
+
+                                <div className="col-12">
+
+                                    <label className="form-label small fw-semibold text-dark mb-2">
+                                        Daily Assignments{" "}
+                                        <span className="text-danger">*</span>
+                                    </label>
+
+
+                                    {form.dailyAssignments.map(
+                                        (assignment, index) => (
+
                                             <div
-                                                className="position-fixed top-0 start-0 w-100 h-100"
-                                                style={{ zIndex: 10 }}
-                                                onClick={() => setDropdownOpen(false)}
-                                            />
-                                            {/* List */}
-                                            <div
-                                                className="position-absolute start-0 end-0 bg-white border rounded-3 shadow-sm"
-                                                style={{ zIndex: 11, maxHeight: 200, overflowY: "auto", top: "calc(100% + 4px)" }}
+                                                key={index}
+                                                className="row g-2 mb-2 align-items-center"
                                             >
-                                                {(users || []).length === 0 && (
-                                                    <div className="px-3 py-2 text-secondary small">No users available.</div>
-                                                )}
-                                                {(users || []).map((u, i) => {
-                                                    const isSelected = form.assignedUser?.id === u.id;
-                                                    return (
-                                                        <div
-                                                            key={i}
-                                                            className="d-flex align-items-center gap-3 px-3 py-2"
-                                                            style={{
-                                                                fontSize: 13,
-                                                                cursor: "pointer",
-                                                                borderBottom: i < users.length - 1 ? "1px solid #f0f0f0" : "none",
-                                                                background: isSelected ? "#eef4ff" : "white",
-                                                            }}
+
+                                                {/* USER */}
+                                                <div className="col-6">
+
+                                                    <select
+                                                        className="form-select rounded-3"
+                                                        value={assignment.userId}
+                                                        onChange={(e) => {
+
+                                                            const updated = [
+                                                                ...form.dailyAssignments
+                                                            ];
+
+                                                            updated[index] = {
+                                                                ...updated[index],
+                                                                userId: e.target.value
+                                                            };
+
+                                                            setForm({
+                                                                ...form,
+                                                                dailyAssignments:
+                                                                    updated
+                                                            });
+
+                                                        }}
+                                                    >
+
+                                                        <option value="">
+                                                            Select User
+                                                        </option>
+
+                                                        {(users || []).map(
+                                                            (user) => (
+
+                                                                <option
+                                                                    key={user.id}
+                                                                    value={user.id}
+                                                                >
+                                                                    {user.name}
+                                                                </option>
+
+                                                            )
+                                                        )}
+
+                                                    </select>
+
+                                                </div>
+
+
+                                                {/* DAY */}
+                                                <div className="col-5">
+
+                                                    <select
+                                                        className="form-select rounded-3"
+                                                        value={assignment.day}
+                                                        onChange={(e) => {
+
+                                                            const updated = [
+                                                                ...form.dailyAssignments
+                                                            ];
+
+                                                            updated[index] = {
+                                                                ...updated[index],
+                                                                day: e.target.value
+                                                            };
+
+                                                            setForm({
+                                                                ...form,
+                                                                dailyAssignments:
+                                                                    updated
+                                                            });
+
+                                                        }}
+                                                    >
+
+                                                        <option value="">
+                                                            Select Day
+                                                        </option>
+
+                                                        {[
+                                                            "Monday",
+                                                            "Tuesday",
+                                                            "Wednesday",
+                                                            "Thursday",
+                                                            "Friday",
+                                                            "Saturday",
+                                                            "Sunday"
+                                                        ].map((day) => (
+
+                                                            <option
+                                                                key={day}
+                                                                value={day}
+                                                            >
+                                                                {day}
+                                                            </option>
+
+                                                        ))}
+
+                                                    </select>
+
+                                                </div>
+
+
+                                                {/* DELETE */}
+                                                <div className="col-1">
+
+                                                    {form.dailyAssignments
+                                                        .length > 1 && (
+
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-outline-danger btn-sm"
                                                             onClick={() => {
-                                                                setForm({ ...form, assignedUser: u });
-                                                                setDropdownOpen(false);
+
+                                                                setForm({
+                                                                    ...form,
+
+                                                                    dailyAssignments:
+                                                                        form.dailyAssignments.filter(
+                                                                            (_, i) =>
+                                                                                i !== index
+                                                                        )
+                                                                });
+
                                                             }}
                                                         >
-                                                            <div
-                                                                className="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold flex-shrink-0"
-                                                                style={{ width: 30, height: 30, fontSize: 11 }}
-                                                            >
-                                                                {u.name?.slice(0, 1).toUpperCase()}
-                                                            </div>
-                                                            <div style={{ flex: 1 }}>
-                                                                <div className="fw-semibold text-dark">{u.name}</div>
-                                                                <div className="text-secondary" style={{ fontSize: 11 }}>{u.email}</div>
-                                                            </div>
-                                                            <span className="badge bg-primary bg-opacity-10 text-primary rounded-pill" style={{ fontSize: 10 }}>
-                                                                {u.role}
-                                                            </span>
-                                                            {isSelected && (
-                                                                <span className="text-primary fw-bold" style={{ fontSize: 13 }}>✓</span>
-                                                            )}
-                                                        </div>
-                                                    );
-                                                })}
+                                                            🗑
+                                                        </button>
+
+                                                    )}
+
+                                                </div>
+
                                             </div>
-                                        </>
+
+                                        )
                                     )}
+
+
+                                    {/* ADD ASSIGNMENT */}
+                                    <button
+                                        type="button"
+                                        className="btn btn-outline-primary btn-sm mt-1"
+                                        onClick={() => {
+
+                                            setForm({
+                                                ...form,
+
+                                                dailyAssignments: [
+                                                    ...form.dailyAssignments,
+
+                                                    {
+                                                        userId: "",
+                                                        day: ""
+                                                    }
+                                                ]
+                                            });
+
+                                        }}
+                                    >
+                                        + Add Assignment
+                                    </button>
+
                                 </div>
-                            </div>
+
+                            ) : (
+
+                                /* ================================================= */
+                                /* OLD NON-DAILY ASSIGN USER DROPDOWN */
+                                /* ================================================= */
+
+                                <div className="col-12">
+
+                                    <label className="form-label small fw-semibold text-dark mb-1">
+                                        Assign To{" "}
+                                        <span className="text-danger">*</span>
+                                    </label>
+
+
+                                    <div className="position-relative">
+
+                                        {/* Trigger */}
+                                        <button
+                                            type="button"
+                                            className="form-select rounded-3 text-start d-flex align-items-center justify-content-between"
+                                            style={{ fontSize: 14 }}
+                                            onClick={() =>
+                                                setDropdownOpen(
+                                                    (p) => !p
+                                                )
+                                            }
+                                        >
+
+                                            {form.assignedUser ? (
+
+                                                <div className="d-flex align-items-center gap-2">
+
+                                                    <div
+                                                        className="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold flex-shrink-0"
+                                                        style={{
+                                                            width: 24,
+                                                            height: 24,
+                                                            fontSize: 10
+                                                        }}
+                                                    >
+                                                        {form.assignedUser.name
+                                                            ?.slice(0, 1)
+                                                            .toUpperCase()}
+                                                    </div>
+
+
+                                                    <span className="text-dark">
+                                                        {form.assignedUser.name}
+                                                    </span>
+
+
+                                                    <span
+                                                        className="badge bg-primary bg-opacity-10 text-primary rounded-pill"
+                                                        style={{
+                                                            fontSize: 10
+                                                        }}
+                                                    >
+                                                        {form.assignedUser.role}
+                                                    </span>
+
+                                                </div>
+
+                                            ) : (
+
+                                                <span className="text-secondary">
+                                                    — Select a user —
+                                                </span>
+
+                                            )}
+
+
+                                            <svg
+                                                width="12"
+                                                height="12"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="2.5"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                style={{
+                                                    transform: dropdownOpen
+                                                        ? "rotate(180deg)"
+                                                        : "rotate(0deg)",
+                                                    transition:
+                                                        "transform 0.2s",
+                                                    flexShrink: 0
+                                                }}
+                                            >
+                                                <polyline points="6 9 12 15 18 9" />
+                                            </svg>
+
+                                        </button>
+
+
+                                        {dropdownOpen && (
+
+                                            <>
+
+                                                {/* BACKDROP */}
+                                                <div
+                                                    className="position-fixed top-0 start-0 w-100 h-100"
+                                                    style={{ zIndex: 10 }}
+                                                    onClick={() =>
+                                                        setDropdownOpen(
+                                                            false
+                                                        )
+                                                    }
+                                                />
+
+
+                                                {/* USER LIST */}
+                                                <div
+                                                    className="position-absolute start-0 end-0 bg-white border rounded-3 shadow-sm"
+                                                    style={{
+                                                        zIndex: 11,
+                                                        maxHeight: 200,
+                                                        overflowY: "auto",
+                                                        top: "calc(100% + 4px)"
+                                                    }}
+                                                >
+
+                                                    {(users || []).length ===
+                                                        0 && (
+
+                                                        <div className="px-3 py-2 text-secondary small">
+                                                            No users available.
+                                                        </div>
+
+                                                    )}
+
+
+                                                    {(users || []).map(
+                                                        (u, i) => {
+
+                                                            const isSelected =
+                                                                form.assignedUser
+                                                                    ?.id ===
+                                                                u.id;
+
+                                                            return (
+
+                                                                <div
+                                                                    key={i}
+                                                                    className="d-flex align-items-center gap-3 px-3 py-2"
+                                                                    style={{
+                                                                        fontSize: 13,
+                                                                        cursor: "pointer",
+                                                                        borderBottom:
+                                                                            i <
+                                                                            users.length -
+                                                                                1
+                                                                                ? "1px solid #f0f0f0"
+                                                                                : "none",
+                                                                        background:
+                                                                            isSelected
+                                                                                ? "#eef4ff"
+                                                                                : "white"
+                                                                    }}
+                                                                    onClick={() => {
+
+                                                                        setForm({
+                                                                            ...form,
+                                                                            assignedUser:
+                                                                                u
+                                                                        });
+
+                                                                        setDropdownOpen(
+                                                                            false
+                                                                        );
+
+                                                                    }}
+                                                                >
+
+                                                                    <div
+                                                                        className="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold flex-shrink-0"
+                                                                        style={{
+                                                                            width: 30,
+                                                                            height: 30,
+                                                                            fontSize: 11
+                                                                        }}
+                                                                    >
+                                                                        {u.name
+                                                                            ?.slice(
+                                                                                0,
+                                                                                1
+                                                                            )
+                                                                            .toUpperCase()}
+                                                                    </div>
+
+
+                                                                    <div
+                                                                        style={{
+                                                                            flex: 1
+                                                                        }}
+                                                                    >
+
+                                                                        <div className="fw-semibold text-dark">
+                                                                            {
+                                                                                u.name
+                                                                            }
+                                                                        </div>
+
+                                                                        <div
+                                                                            className="text-secondary"
+                                                                            style={{
+                                                                                fontSize: 11
+                                                                            }}
+                                                                        >
+                                                                            {
+                                                                                u.email
+                                                                            }
+                                                                        </div>
+
+                                                                    </div>
+
+
+                                                                    <span
+                                                                        className="badge bg-primary bg-opacity-10 text-primary rounded-pill"
+                                                                        style={{
+                                                                            fontSize: 10
+                                                                        }}
+                                                                    >
+                                                                        {u.role}
+                                                                    </span>
+
+
+                                                                    {isSelected && (
+
+                                                                        <span
+                                                                            className="text-primary fw-bold"
+                                                                            style={{
+                                                                                fontSize: 13
+                                                                            }}
+                                                                        >
+                                                                            ✓
+                                                                        </span>
+
+                                                                    )}
+
+                                                                </div>
+
+                                                            );
+
+                                                        }
+                                                    )}
+
+                                                </div>
+
+                                            </>
+
+                                        )}
+
+                                    </div>
+
+                                </div>
+
+                            )}
+
+
+                            {/* ================================================= */}
+                            {/* SPECIAL REMARK */}
+                            {/* ================================================= */}
 
                             <div className="col-12">
-                                <label className="form-label small fw-semibold text-dark mb-1" htmlFor="Special Remark" >
-                                    Special Remark <span className="text-danger">*</span>
+
+                                <label
+                                    className="form-label small fw-semibold text-dark mb-1"
+                                    htmlFor="Special Remark"
+                                >
+                                    Special Remark{" "}
+                                    <span className="text-danger">*</span>
                                 </label>
+
+
                                 <textarea
                                     name="Enter Special Remark"
                                     placeholder="Enter Special Remark"
                                     className="form-control rounded-3"
-                                    id=""
-                                    onChange={(e) => setForm({ ...form, specialRemark: e.target.value })}
-                                >
-                                </textarea>
+                                    id="Special Remark"
+                                    value={form.specialRemark}
+                                    onChange={(e) =>
+                                        setForm({
+                                            ...form,
+                                            specialRemark:
+                                                e.target.value
+                                        })
+                                    }
+                                />
+
                             </div>
 
+
+                            {/* ================================================= */}
+                            {/* SPECIAL IMAGE */}
+                            {/* ================================================= */}
+
                             <div className="col-12">
-                                <label className="form-label small fw-semibold text-dark mb-1" htmlFor="Special Remark" >
+
+                                <label
+                                    className="form-label small fw-semibold text-dark mb-1"
+                                    htmlFor="Special Image"
+                                >
                                     Special Image
                                 </label>
+
+
                                 <input
                                     type="file"
                                     className="form-control rounded-3 mb-2"
+                                    id="Special Image"
+                                    multiple
                                     onChange={(e) => {
-                                        setForm({ ...form, specialImages: [...e.target.files] });
+
+                                        setForm({
+                                            ...form,
+                                            specialImages: [
+                                                ...e.target.files
+                                            ]
+                                        });
+
                                     }}
                                 />
+
                             </div>
 
                         </div>
+
                     </div>
 
-                    {/* Footer */}
+
+                    {/* ================= FOOTER ================= */}
+
                     <div className="modal-footer border-top border-primary border-opacity-25 px-4 py-3">
-                        <button type="button" className="btn btn-outline-secondary rounded-3 px-4" onClick={onClose}>
+
+                        <button
+                            type="button"
+                            className="btn btn-outline-secondary rounded-3 px-4"
+                            onClick={onClose}
+                        >
                             Cancel
                         </button>
+
+
                         <button
                             type="button"
                             className="btn btn-primary rounded-3 px-4"
-                            disabled={!form.assignedUser || !form.scheduleDate}
-                            onClick={() => { onSave(quote.id, form); onClose(); }}
+
+                            disabled={
+                                !form.scheduleDate ||
+
+                                (
+                                    !isDaily &&
+                                    !form.assignedUser
+                                ) ||
+
+                                (
+                                    isDaily &&
+                                    form.dailyAssignments.some(
+                                        (item) =>
+                                            !item.userId ||
+                                            !item.day
+                                    )
+                                )
+                            }
+
+                            onClick={() => {
+                                onSave(quote.id, form);
+                                onClose();
+                            }}
                         >
                             Assign
                         </button>
+
                     </div>
 
                 </div>
@@ -514,6 +983,10 @@ function FollowUpModal({ quote, onClose, onSave }) {
 function UpdateModal({ quote, onClose, onSave, Services }) {
     // console.table(Services)
 
+    console.log("EDIT QUOTE DATA:", quote);
+    console.log("quotationType:", quote?.quotationType);
+    console.log("cleaningType:", quote?.cleaningType);
+
     const [form, setForm] = useState({
         clientName: quote.clientName,
         email: quote.email,
@@ -521,6 +994,8 @@ function UpdateModal({ quote, onClose, onSave, Services }) {
         address: quote.address,
         zip: quote.zip,
         services: quote.services,
+        quotationType: quote.quotationType || "",
+        cleaningType: quote.cleaningType || "",
         quotedAmount: quote.quotedAmount,
         advanceAmount: quote.advanceAmount,
         dueAmount: quote.dueAmount,
@@ -626,6 +1101,65 @@ function UpdateModal({ quote, onClose, onSave, Services }) {
                                 <label className="form-label small fw-semibold text-dark mb-1">Post code</label>
                                 <input className="form-control rounded-3" value={form.zip} onChange={(e) => set("zip", e.target.value)} />
                             </div>
+
+                           {quote.source === "EXTERNAL" && (
+                                <>
+                                    <div className="col-md-3">
+                                        <label className="form-label small fw-semibold text-dark mb-1">
+                                            Service Type
+                                        </label>
+
+                                        <select
+                                            className="form-select rounded-3"
+                                            value={form.quotationType || ""}
+                                            onChange={(e) => {
+                                                const value = e.target.value;
+
+                                                setForm((f) => ({
+                                                    ...f,
+                                                    quotationType: value,
+                                                    cleaningType: ""
+                                                }));
+                                            }}
+                                        >
+                                            <option value="">— Select Type —</option>
+                                            <option value="OnceOff">Once-Off</option>
+                                            <option value="Recurring">Recurring</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="col-md-3">
+                                        <label className="form-label small fw-semibold text-dark mb-1">
+                                            Cleaning Type
+                                        </label>
+
+                                        <select
+                                            className="form-select rounded-3"
+                                            value={form.cleaningType || ""}
+                                            disabled={!form.quotationType}
+                                            onChange={(e) =>
+                                                set("cleaningType", e.target.value)
+                                            }
+                                        >
+                                            <option value="">— Select Type —</option>
+
+                                            {form.quotationType === "OnceOff" && (
+                                                <option value="One-Time">One-Time</option>
+                                            )}
+
+                                            {form.quotationType === "Recurring" && (
+                                                <>
+                                                    <option value="Daily">Daily</option>
+                                                    <option value="Weekly">Weekly</option>
+                                                    <option value="FortNightly">FortNightly</option>
+                                                    <option value="Monthly">Monthly</option>
+                                                </>
+                                            )}
+                                        </select>
+                                    </div>
+                                </>
+                            )}
+                            
                             {
                                 form.operators?.length > 0 &&
                                 form.operators.map((op, index) => {
@@ -1379,37 +1913,114 @@ export default function QuotesTable({ initialQuotes, services, userList }) {
     }
 
 
-
-
-    async function handleAssign(id, form) {
-
+async function handleAssign(id, form) {
+    try {
         const formData = new FormData();
-        formData.append("quotes", JSON.stringify([id]));
-        formData.append("operators", JSON.stringify([form.assignedUser]));
 
-        formData.append("otherDetails", form.scheduleDate);
-        formData.append("specialRemark", form.specialRemark || "");
+        formData.append(
+            "quotes",
+            JSON.stringify([id])
+        );
 
-        if (form.specialImages && form.specialImages.length) {
-            for (let i = 0; i < form.specialImages.length; i++) {
-                formData.append("specialImages", form.specialImages[i]);
+        formData.append(
+            "otherDetails",
+            form.scheduleDate
+        );
+
+        formData.append(
+            "specialRemark",
+            form.specialRemark || ""
+        );
+
+        const quote = quotes.find(
+            (q) => Number(q.id) === Number(id)
+        );
+
+        const isDaily =
+            quote?.cleaningType
+                ?.trim()
+                ?.toLowerCase() === "daily";
+
+        console.log("IS DAILY:", isDaily);
+        console.log(
+            "DAILY ASSIGNMENTS:",
+            form.dailyAssignments
+        );
+
+        if (isDaily) {
+
+            formData.append(
+                "dailyAssignments",
+                JSON.stringify(
+                    form.dailyAssignments || []
+                )
+            );
+
+            console.log(
+                "FORM DAILY:",
+                formData.get("dailyAssignments")
+            );
+
+        } else {
+
+            // EXISTING FUNCTIONALITY
+            formData.append(
+                "operators",
+                JSON.stringify([
+                    form.assignedUser
+                ])
+            );
+        }
+
+        if (
+            form.specialImages &&
+            form.specialImages.length
+        ) {
+            for (
+                let i = 0;
+                i < form.specialImages.length;
+                i++
+            ) {
+                formData.append(
+                    "specialImages",
+                    form.specialImages[i]
+                );
             }
         }
 
-        const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/quote-assign`,
-           formData,
+        const response = await axios.post(
+            `${process.env.NEXT_PUBLIC_BACKEND_URL}/quote-assign`,
+            formData,
             {
                 headers: {
-                    Authorization: `Bearer ${token}`
+                    Authorization:
+                        `Bearer ${token}`
                 }
             }
-        )
+        );
+
         setAssignModal(null);
-        showToast("Assigned job successfully");
+
+        showToast(
+            "Assigned job successfully"
+        );
 
         window.location.reload();
 
+    } catch (error) {
+
+        console.error(
+            "Quote Assign Error:",
+            error?.response?.data || error
+        );
+
+        showToast(
+            error?.response?.data?.message ||
+            "Failed to assign job",
+            "danger"
+        );
     }
+}
 
 
 

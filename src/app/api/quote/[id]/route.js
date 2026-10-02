@@ -137,6 +137,9 @@ export const GET = asyncHandler(async (req, { params }) => {
       "createdAt",
       "updatedAt",
       "suburbs",
+      "quotationType",
+      "cleaningType",
+      "source",
     ],
     // include: [
     //   {

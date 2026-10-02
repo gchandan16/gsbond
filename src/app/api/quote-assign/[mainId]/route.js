@@ -7,6 +7,7 @@ import { successResponse, errorResponse } from "../../../utils/response";
 import { validateRequest } from "../../../utils"
 import { getModels } from "../../../models";
 import { Op } from "sequelize";
+import { invoiceModel } from "../../../models/invoice.model";
 
 // This controller for the Accept or reject of job by the cleaner
 export const PUT = asyncHandler(async (req, { params }) => {
@@ -56,6 +57,64 @@ export const PUT = asyncHandler(async (req, { params }) => {
     })
 
     return successResponse("Updated successfully");
+});
+
+
+
+// Get all jobs/QuoteAssigns for a Quote
+export const GET = asyncHandler(async (req, { params }) => {
+    const user = validateRequest(req, "assignedQuote", "edit");
+
+    const { mainId } = await params;
+
+    const { quoteassignmodel } = await getModels();
+    const invoicemodel = await invoiceModel();
+
+    if (!quoteassignmodel) {
+        return errorResponse("Quote Assign model not initialised !!!");
+    }
+
+    if (!invoicemodel) {
+        return errorResponse("Invoice model not initialised !!!");
+    }
+
+    const jobs = await quoteassignmodel.findAll({
+        where: {
+            quote_id: Number(mainId),
+            isDeleted: false,
+            isCompleted: true,
+        },
+        order: [["time", "ASC"]],
+    });
+
+    const invoices = await invoicemodel.findAll({
+        where: {
+            QuoteId: Number(mainId),
+            QuoteAssignId: {
+                [Op.ne]: null,
+            },
+        },
+        attributes: ["QuoteAssignId"],
+    });
+
+    const invoicedJobIds = new Set(
+        invoices.map(invoice => Number(invoice.QuoteAssignId))
+    );
+
+    console.log("Completed jobs:", jobs.map(job => job.id));
+    console.log("Invoiced jobs:", [...invoicedJobIds]);
+
+    const availableJobs = jobs.filter(
+        job => !invoicedJobIds.has(Number(job.id))
+    );
+
+    console.log("Available jobs:", availableJobs.map(job => job.id));
+
+    return successResponse(
+        availableJobs,
+        "Available completed jobs fetched successfully",
+        200
+    );
 });
 
 

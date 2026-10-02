@@ -14,6 +14,8 @@ export default function AllLeadsTable({
     const [currentPage, setCurrentPage] = useState(1);
 
     const [selectedLead, setSelectedLead] = useState(null);
+    const [sortColumn, setSortColumn] = useState("createdAt");
+    const [sortDirection, setSortDirection] = useState("desc");
 
     const perPage = 10;
 
@@ -61,6 +63,36 @@ export default function AllLeadsTable({
     }, [leads, search]);
 
 
+    const sortedLeads = useMemo(() => {
+    const sorted = [...filteredLeads];
+
+    sorted.sort((a, b) => {
+        let valueA = a[sortColumn];
+        let valueB = b[sortColumn];
+
+        if (sortColumn === "createdAt") {
+            valueA = new Date(valueA).getTime();
+            valueB = new Date(valueB).getTime();
+        } else {
+            valueA = String(valueA ?? "").toLowerCase();
+            valueB = String(valueB ?? "").toLowerCase();
+        }
+
+        if (valueA < valueB) {
+            return sortDirection === "asc" ? -1 : 1;
+        }
+
+        if (valueA > valueB) {
+            return sortDirection === "asc" ? 1 : -1;
+        }
+
+        return 0;
+    });
+
+    return sorted;
+}, [filteredLeads, sortColumn, sortDirection]);
+
+
     /* ============================================================
        PAGINATION
     ============================================================ */
@@ -69,7 +101,7 @@ export default function AllLeadsTable({
         filteredLeads.length / perPage
     );
 
-    const paginatedLeads = filteredLeads.slice(
+    const paginatedLeads = sortedLeads.slice(
         (currentPage - 1) * perPage,
         currentPage * perPage
     );
@@ -771,9 +803,7 @@ export default function AllLeadsTable({
                                      Suburb-Location 
                                 </th>
 
-                                <th>
-                                    Property
-                                </th>
+                                
 
                                 <th>
                                     Services
@@ -783,8 +813,22 @@ export default function AllLeadsTable({
                                     Status
                                 </th>
 
-                                <th>
-                                    Date
+                               <th
+                                    style={{ cursor: "pointer" }}
+                                    onClick={() => {
+                                        if (sortColumn === "createdAt") {
+                                            setSortDirection(
+                                                sortDirection === "asc" ? "desc" : "asc"
+                                            );
+                                        } else {
+                                            setSortColumn("createdAt");
+                                            setSortDirection("desc");
+                                        }
+                                    }}
+                                >
+                                    Date {sortColumn === "createdAt" && (
+                                        sortDirection === "asc" ? " ↑" : " ↓"
+                                    )}
                                 </th>
 
                                 <th className="text-center">
@@ -803,7 +847,7 @@ export default function AllLeadsTable({
                                 <tr>
 
                                     <td
-                                        colSpan="9"
+                                        colSpan="8"
                                         className="text-center py-5"
                                     >
 
@@ -967,36 +1011,6 @@ export default function AllLeadsTable({
                                             </td>
 
 
-                                            {/* Property */}
-
-                                            <td>
-
-                                                <div className="small">
-
-                                                    {lead.houseType ||
-                                                        "—"}
-
-                                                </div>
-
-                                                <div
-                                                    className="text-secondary"
-                                                    style={{
-                                                        fontSize: 11
-                                                    }}
-                                                >
-
-                                                    {lead.bedroom ||
-                                                        "—"}
-
-                                                    {" / "}
-
-                                                    {lead.bathroom ||
-                                                        "—"}
-
-                                                </div>
-
-                                            </td>
-
 
                                             {/* Services */}
 
@@ -1070,14 +1084,11 @@ export default function AllLeadsTable({
                                             {/* Date */}
 
                                             <td>
-
                                                 <span className="text-secondary small">
-
-                                                    {lead.createdAt ||
-                                                        "—"}
-
+                                                    {lead.createdAt
+                                                        ? new Date(lead.createdAt).toISOString().split("T")[0]
+                                                        : "—"}
                                                 </span>
-
                                             </td>
 
 

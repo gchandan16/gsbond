@@ -93,24 +93,24 @@ export async function createOrGetExternalProducts(
     const propertyParts = [];
 
     if (bedroom) {
-        propertyParts.push(bedroom);
-    }
+    propertyParts.push(`bedroom-${bedroom}`);
+}
 
-    if (bathRoom) {
-        propertyParts.push(bathRoom);
-    }
+if (bathRoom) {
+    propertyParts.push(`bathRoom-${bathRoom}`);
+}
 
-    if (furnished) {
-        propertyParts.push(furnished);
-    }
+if (furnished) {
+    propertyParts.push(`furnished-${furnished}`);
+}
 
-    if (houseType) {
-        propertyParts.push(houseType);
-    }
+if (houseType) {
+    propertyParts.push(`houseType-${houseType}`);
+}
 
-    if (livingArea) {
-        propertyParts.push(livingArea);
-    }
+if (livingArea) {
+    propertyParts.push(`livingArea-${livingArea}`);
+}
 
 
     if (propertyParts.length > 0) {
@@ -154,10 +154,7 @@ export async function createOrGetExternalProducts(
     // 4. Find/Create Products
     // ==========================================
 
-    const productIds = [
-        37,
-        38
-    ];
+    const productIds = [];
 
 
     for (const productName of productNames) {
