@@ -1742,40 +1742,22 @@ function buildEmailHTML(quote, customMessage = "") {
                     <tr>
                         <td style="padding:40px;">
                             ${customMessageBlock}
-                            <h2 style="margin:0 0 25px;color:#0d6efd;font-size:20px;font-weight:600;border-bottom:2px solid #0d6efd;padding-bottom:10px;">Estimated Quote</h2>
+                           
+                    <p> Dear ${quote.clientName},</p></br/>
+                    <p>Greetings from GS BOND CLEANING! </p>
+Thank you for allowing us to work with you. Please find attached our quotation for the requested services.</p>
+<p>In order to book your spot, we will be requesting a deposit of $50 and the balance on cleaning day.</p>
+<p>You can pay the deposit via EFT using our bank details on the quote, please confirm once the deposit is paid and also supply the property address.</p>
+<p>Let us know if you have any further queries.</p>  <br/>
 
 
-                            <div style="background-color:#f8f9fa;border-left:4px solid #0d6efd;padding:20px;margin-bottom:25px;border-radius:4px;">
-                                <h3 style="margin:0 0 15px;color:#333;font-size:16px;font-weight:600;">Client Details</h3>
-                                <table width="100%" cellpadding="5" cellspacing="0">
-                                    <tr><td style="color:#666;font-size:14px;width:140px;"><strong>Name:</strong></td><td style="color:#333;font-size:14px;">${quote.clientName}</td></tr>
-                                    <tr><td style="color:#666;font-size:14px;"><strong>Email:</strong></td><td style="color:#333;font-size:14px;">${quote.email}</td></tr>
-                                    <tr><td style="color:#666;font-size:14px;"><strong>Mobile:</strong></td><td style="color:#333;font-size:14px;">${quote.mobile}</td></tr>
-                                    <tr><td style="color:#666;font-size:14px;"><strong>Suburb:</strong></td><td style="color:#333;font-size:14px;">${quote.suburbs}</td></tr>
-                                    <tr><td style="color:#666;font-size:14px;"><strong>Post code:</strong></td><td style="color:#333;font-size:14px;">${quote.zip}</td></tr>
-                                </table>
-                            </div>
 
-                            <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e0e0e0;border-radius:6px;overflow:hidden;margin-bottom:25px;">
-                                <thead>
-                                    <tr style="background-color:#0d6efd;">
-                                        <th style="padding:12px 8px;text-align:center;color:#ffffff;font-size:14px;width:50px;">#</th>
-                                        <th style="padding:12px 8px;text-align:left;color:#ffffff;font-size:14px;">Services/Description</th>
-                                        <th style="padding:12px 8px;text-align:right;color:#ffffff;font-size:14px;width:100px;">Price</th>
-                                    </tr>
-                                </thead>
-                                <tbody>${servicesHTML}</tbody>
-                            </table>
+<p>Kind regards,</p>
+<p>GS BOND CLEANING Support Team</p>
 
-                            <div style="background-color:#f8f9fa;padding:20px;border-radius:6px;margin-bottom:25px;">
-                                <table width="100%" cellpadding="5" cellspacing="0">
-                                    
-                                    <tr style="border-top:2px solid #dee2e6;">
-                                        <td style="color:#333;font-size:16px;text-align:right;padding:10px 0;"><strong>Total Amount:</strong></td>
-                                        <td style="color:#0d6efd;font-size:20px;text-align:right;font-weight:bold;">$${quote.dueAmount}</td>
-                                    </tr>
-                                </table>
-                            </div>
+<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:20px;">
+                           
+                           
 
                             ${quote.otherDetails ? `
                             <div style="background-color:#fff8e1;border-left:4px solid #ffc107;padding:15px;margin-bottom:25px;border-radius:4px;">
@@ -2079,16 +2061,41 @@ async function handleAssign(id, form) {
         // console.log(quote)
         await generateInvoicePDF(quote);
     }
+function calcTotals(quote) {
+    const services = Array.isArray(quote?.services)
+        ? quote.services
+        : [];
 
+    // Subtotal
+    const subtotal = services.reduce(
+        (sum, s) => sum + Number(s.quotedPrice || 0),
+        0
+    );
 
-    function calcTotals(quote) {
-        const total = quote.services.reduce(
-            (sum, s) => sum + Number(s.quotedPrice),
-            0
-        );
+    // GST is already stored in each service
+    const gstAmount = services.reduce(
+        (sum, s) => sum + Number(s.gst || 0),
+        0
+    );
 
-        return { total };
-    }
+    // GST rate comes from .env only when GST is available
+    const gstRate =
+        gstAmount > 0
+            ? Number(process.env.NEXT_PUBLIC_GST_RATE || 0)
+            : 0;
+
+    // Final total
+    const total = subtotal + gstAmount;
+
+    return {
+        subtotal,
+        gstRate,
+        gstAmount,
+        total
+    };
+}
+
+  
 
     function loadScript(src) {
         return new Promise((resolve, reject) => {
@@ -2125,7 +2132,9 @@ async function handleAssign(id, form) {
         const L = 14;   // left margin
         const R = pageW - 14; // right margin
 
-        const { total } = calcTotals(quote);
+        //const { total } = calcTotals(quote);
+
+        const {subtotal, gstRate,gstAmount,total } = calcTotals(quote);
 
         // ── TOP: Company name + logo area (left) ──────────────────────────
         let y = 14;
@@ -2171,7 +2180,7 @@ async function handleAssign(id, form) {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(24);
         doc.setTextColor(...DARK);
-        doc.text("Estimated Quote", R, y, { align: "right" });
+        //doc.text("Estimated Quote", R, y, { align: "right" });
 
         doc.setFont("helvetica", "normal");
         doc.setFontSize(11);
@@ -2272,9 +2281,343 @@ async function handleAssign(id, form) {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(9);
         doc.setTextColor(...MUTED);
-        doc.text("Total:", R - 40, ty);
+       
+        // ── TOTALS ──────────────────────────────────────────
+
+        
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+
+        // Subtotal
+        doc.setTextColor(...MUTED);
+
+        doc.text(
+            "Subtotal:",
+            R - 40,
+            ty
+        );
+
         doc.setTextColor(...DARK);
-        doc.text(`A$${Number(total).toFixed(2)}`, R, ty, { align: "right" });
+
+        doc.text(
+            `A$${Number(subtotal).toFixed(2)}`,
+            R,
+            ty,
+            { align: "right" }
+        );
+
+
+        // GST
+        ty += 7;
+
+        doc.setTextColor(...MUTED);
+
+        doc.text(
+            `GST (${Number(gstRate).toFixed(2)}%):`,
+            R - 40,
+            ty
+        );
+
+        doc.setTextColor(...DARK);
+
+        doc.text(
+            `A$${Number(gstAmount).toFixed(2)}`,
+            R,
+            ty,
+            { align: "right" }
+        );
+
+
+        // Total
+        ty += 8;
+
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...DARK);
+
+        doc.text(
+            "Total:",
+            R - 40,
+            ty
+        );
+
+        doc.text(
+            `A$${Number(total).toFixed(2)}`,
+            R,
+            ty,
+            { align: "right" }
+        );
+
+
+
+
+        // ── FOOTER ───────────────────────────────────────────────────────
+        // Divider before footer
+        ty += 16;
+        doc.setDrawColor(210, 210, 210);
+        doc.setLineWidth(0.3);
+        // doc.line(L, ty, R, ty);
+        ty += 8;
+
+        // Company footer info
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(...DARK);
+        doc.text("GS Bond Cleaning", L, ty);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8.5);
+        doc.setTextColor(...MUTED);
+        doc.text("P : 08 8444 0442", L, ty + 6);
+        doc.text("E : admin@gsbondcleaning.com.au", L, ty + 12);
+        doc.text("W : www.gsbondcleaning.com.au", L, ty + 18);
+
+        ty += 28;
+        doc.setTextColor(...DARK);
+        doc.setFontSize(8.5);
+        doc.text("Click the below link for inclusions of our service :", L, ty);
+        doc.setTextColor(...BLUE);
+        doc.text("https://www.gsbondcleaning.com.au/inclusions-and-exclusions/", L, ty + 6);
+
+        ty += 14;
+        doc.setTextColor(...DARK);
+        doc.text("Terms & Conditions :", L, ty);
+        doc.setTextColor(...BLUE);
+        doc.text("https://www.gsbondcleaning.com.au/terms-conditions/", L, ty + 6);
+
+        ty += 14;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8.5);
+        doc.setTextColor(...DARK);
+        doc.text("Bank Details :", L, ty);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...MUTED);
+        doc.text("GS Bond Cleaning pty Ltd.", L, ty + 6);
+        doc.text("BSB : 085005", L, ty + 12);
+        doc.text("AC : 310448994", L, ty + 18);
+
+
+        // ── SAVE ─────────────────────────────────────────────────────────
+        doc.save(`Quote${quote.id}_${quote.clientName.replace(/\s+/g, "_")}.pdf`);
+    }
+
+
+    async function generateInvoicePDFForEmail(quote) {
+        await ensureJsPDF();
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+        const DARK = [45, 45, 45];
+        const MUTED = [120, 120, 120];
+        const BLACK = [0, 0, 0];
+        const WHITE = [255, 255, 255];
+        const HEADER_BG = [55, 55, 55];   // dark grey table header (matches receipt)
+        const LIGHT_GREY = [245, 245, 245];
+        const BLUE = [0, 150, 210];  // GS Bond blue accent
+
+        const pageW = doc.internal.pageSize.getWidth();   // 210mm
+        const pageH = doc.internal.pageSize.getHeight();  // 297mm
+        const L = 14;   // left margin
+        const R = pageW - 14; // right margin
+
+        const {subtotal,gstRate, gstAmount, total} = calcTotals(quote);
+
+        // ── TOP: Company name + logo area (left) ──────────────────────────
+        let y = 14;
+
+        const loadImage = (url) => new Promise((resolve) => {
+            const img = new window.Image();
+            img.onload = () => {
+                const canvas = document.createElement("canvas");
+                canvas.width = img.width;
+                canvas.height = img.height;
+                canvas.getContext("2d").drawImage(img, 0, 0);
+                resolve(canvas.toDataURL("image/png"));
+            };
+            img.onerror = () => resolve(null);
+            img.src = url;
+        });
+        const logoBase64 = await loadImage("/logo/logo.png");
+        if (logoBase64) {
+            const imgX = L;
+            const imgY = 6;
+            const imgWidth = 20;
+            const imgHeight = 20;
+
+            doc.addImage(logoBase64, "PNG", imgX, imgY, imgWidth, imgHeight);
+
+            // Calculate vertical center of image
+            const centerY = imgY + imgHeight / 2;
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(9);
+            doc.setTextColor(...BLACK);
+
+            // Adjust text Y slightly because text baseline differs
+            doc.text("GS Bond Cleaning", imgX + imgWidth + 4, centerY + 2);
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(9);
+            doc.setTextColor(...MUTED);
+            doc.text("ABN : 98638640230", L + 24, 22);
+        }
+
+        // ── TOP RIGHT: "Receipt" heading + invoice number ─────────────────
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(24);
+        doc.setTextColor(...DARK);
+        //doc.text("Estimated Quote", R, y, { align: "right" });
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(11);
+        doc.setTextColor(...MUTED);
+        doc.text(`# ${quote.invoiceNo || quote.id}`, R, y + 8, { align: "right" });
+
+        // ── HORIZONTAL DIVIDER ────────────────────────────────────────────
+        y = 30;
+        doc.setDrawColor(220, 220, 220);
+        doc.setLineWidth(0.3);
+        // doc.line(L, y, R, y);
+
+        // ── BILL TO (left) + Date/Balance (right) ────────────────────────
+        y += 8;
+
+        // Left: Receipt To
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8.5);
+        doc.setTextColor(...MUTED);
+        doc.text("Receipt To:", L, y);
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(...BLACK);
+        doc.text(quote.clientName, L, y + 6);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8.5);
+        doc.setTextColor(...MUTED);
+        const addrLines = doc.splitTextToSize(quote.address + ", " + quote.zip, 70);
+        doc.text(addrLines, L, y + 12);
+
+        // Right: Date / Due Date / Balance Due box
+        const boxX = pageW - 90;
+        const boxW = 76;
+
+        // Date row
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(...MUTED);
+        doc.text("Date:", boxX, y + 2);
+        doc.setTextColor(...DARK);
+        doc.text(new Date().toLocaleDateString("en-AU", { month: "short", day: "2-digit", year: "numeric" }), R, y + 2, { align: "right" });
+
+        // Due Date row
+        doc.setTextColor(...MUTED);
+        doc.text("Due Date:", boxX, y + 9);
+        doc.setTextColor(...DARK);
+        doc.text(new Date().toLocaleDateString("en-AU", { month: "short", day: "2-digit", year: "numeric" }), R, y + 9, { align: "right" });
+
+        
+        // ── SERVICES TABLE ────────────────────────────────────────────────
+        y += 40;
+
+        doc.autoTable({
+            startY: y,
+            head: [["Item", "Rate", "Amount"]],
+            body: quote.services.map((s) => [
+                s.name,
+                `A$${Number(s.price).toFixed(2)}`,
+                `A$${(Number(s.quotedPrice) * (1)).toFixed(2)}`,
+            ]),
+            // theme: "grid",
+            headStyles: {
+                fillColor: HEADER_BG,
+                textColor: WHITE,
+                fontStyle: "bold",
+                fontSize: 9,
+                halign: "left",
+            },
+            bodyStyles: {
+                fontSize: 9,
+                textColor: DARK,
+                minCellHeight: 10,
+            },
+            columnStyles: {
+                0: { cellWidth: "auto" },
+                1: { halign: "center", cellWidth: 25 },
+                2: { halign: "right", cellWidth: 30 },
+                3: { halign: "right", cellWidth: 30 },
+            },
+            alternateRowStyles: { fillColor: WHITE },
+            margin: { left: L, right: L },
+        });
+
+        // ── TOTALS (right aligned, below table) ──────────────────────────
+
+
+				let ty = doc.lastAutoTable.finalY + 6;
+
+				// Subtotal
+				doc.setFont("helvetica", "normal");
+				doc.setFontSize(9);
+				doc.setTextColor(...MUTED);
+
+				doc.text(
+					"Subtotal:",
+					R - 40,
+					ty
+				);
+
+				doc.setTextColor(...DARK);
+
+				doc.text(
+					`A$${Number(subtotal).toFixed(2)}`,
+					R,
+					ty,
+					{ align: "right" }
+				);
+
+
+				// GST
+				ty += 7;
+
+				doc.setTextColor(...MUTED);
+
+				doc.text(
+					`GST (${Number(gstRate).toFixed(2)}%):`,
+					R - 40,
+					ty
+				);
+
+				doc.setTextColor(...DARK);
+
+				doc.text(
+					`A$${Number(gstAmount).toFixed(2)}`,
+					R,
+					ty,
+					{ align: "right" }
+				);
+
+
+				// Total
+				ty += 8;
+
+				doc.setFont("helvetica", "bold");
+				doc.setTextColor(...DARK);
+
+				doc.text(
+					"Total:",
+					R - 40,
+					ty
+				);
+
+				doc.text(
+					`A$${Number(total).toFixed(2)}`,
+					R,
+					ty,
+					{ align: "right" }
+				);
 
         // ty += 7;
         // doc.setTextColor(...MUTED);
@@ -2327,74 +2670,11 @@ async function handleAssign(id, form) {
         doc.text("BSB : 085005", L, ty + 12);
         doc.text("AC : 310448994", L, ty + 18);
 
+        const blob = doc.output("blob");
+        const fileName = `Quote${quote.id}_${quote.clientName.replace(/\s+/g, "_")}.pdf`;
 
-
-        // const blob = doc.output("blob");
-        // const url = URL.createObjectURL(blob);
-
-        // const newTab = window.open("", "_blank");
-
-        // if (!newTab) {
-        //     alert("Popup blocked! Please allow popups.");
-        //     return;
-        // }
-
-        //     newTab.document.write(`
-        // <html>
-        // <head>
-        //     <title>Quotation Preview</title>
-        //     <style>
-        //         body { margin:0; font-family:Arial; background:#f4f6f9; }
-        //         .topbar {
-        //             padding:10px;
-        //             background:#fff;
-        //             border-bottom:1px solid #ddd;
-        //             display:flex;
-        //             justify-content:space-between;
-        //         }
-        //         button {
-        //             padding:6px 12px;
-        //             border:none;
-        //            borderRadius:6px;
-        //             cursor:pointer;
-        //         }
-        //         .download { background:#0d6efd; color:#fff; }
-        //         .print { background:#198754; color:#fff; }
-        //         iframe { width:100%; height:calc(100vh - 50px); border:none; }
-        //     </style>
-        // </head>
-        // <body>
-
-        //     <div class="topbar">
-        //         <div><b>Quotation Preview</b></div>
-        //         <div>
-        //             <button class="download" onclick="download()">Download</button>
-        //             <button class="print" onclick="printPdf()">Print</button>
-        //         </div>
-        //     </div>
-
-        //     <iframe src="${url}"></iframe>
-
-        //     <script>
-        //         function download() {
-        //             const a = document.createElement('a');
-        //             a.href = "${url}";
-        //             a.download = "quotation.pdf";
-        //             a.click();
-        //         }
-        //         function printPdf() {
-        //             document.querySelector('iframe').contentWindow.print();
-        //         }
-        //     </script>
-
-        // </body>
-        // </html>
-        //     `);
-
-        // ── SAVE ─────────────────────────────────────────────────────────
-        doc.save(`Quote${quote.id}_${quote.clientName.replace(/\s+/g, "_")}.pdf`);
+        return {blob,  fileName: fileName};
     }
-
 
     function buildQuoteFromState(client) {
         return {
@@ -2413,6 +2693,7 @@ async function handleAssign(id, form) {
                     qty: r.qty || 1,
                     price: parseFloat(r.price || r.base) || 0,
                     quotedPrice: parseFloat(r.quotedPrice || r.price || r.base) || 0,
+                     gst: parseFloat(r.gst || 0),
                 })),
             total: services.filter((r) => r.serviceId || r.name).reduce((acc, num) => acc + parseFloat(num.quotedPrice || 0), 0).toFixed(2),
         };
@@ -2456,40 +2737,91 @@ async function handleAssign(id, form) {
 
 
     // Inside your component — updated sendEmail
-    async function sendEmail(quote, customMessage = "", subject = "Quote from GS Bond Cleaning") {
-        try {
-            const token = localStorage.getItem("authToken");
+async function sendEmail(
+    quote,
+    customMessage = "",
+    subject = "Quote from GS Bond Cleaning"
+) {
+    try {
+        const token = localStorage.getItem("authToken");
 
-            const emailHTML = buildEmailHTML(quote, customMessage);
+        // Generate PDF specifically for email
+        const pdfResult = await generateInvoicePDFForEmail(quote);
 
-            const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/send-mail`, {
+        console.log("PDF RESULT:", pdfResult);
+        console.log("PDF BLOB:", pdfResult?.blob);
+        console.log("PDF SIZE:", pdfResult?.blob?.size);
+
+        if (!pdfResult?.blob) {
+            throw new Error("Failed to generate quotation PDF");
+        }
+
+        const emailHTML = buildEmailHTML(
+            quote,
+            customMessage
+        );
+
+        const formData = new FormData();
+
+        formData.append("id", quote.id);
+        formData.append("to", quote.email);
+        formData.append("subject", subject);
+        formData.append("html", emailHTML);
+
+        formData.append(
+            "quotePdf",
+            pdfResult.blob,
+            pdfResult.fileName
+        );
+
+        const res = await fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_URL}/send-quote-mail`,
+            {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify({
-                    id: quote.id,
-                    to: quote.email,
-                    subject: subject,
-                    html: emailHTML,
-                }),
-            });
+                body: formData,
+            }
+        );
 
-            const data = await res.json();
+       const responseText = await res.text();
 
-            if (data.success) {
+console.log("SEND MAIL STATUS:", res.status);
+console.log("SEND MAIL RESPONSE:", responseText);
+
+            let data;
+
+            try {
+                data = JSON.parse(responseText);
+            } catch {
+                data = {
+                    success: false,
+                    message: responseText
+                };
+            }
+
+            if (res.ok && data.success) {
                 alert("Email sent successfully ✅");
                 setShowEmailModal(false);
             } else {
-                alert("Failed to send email ❌");
-            }
-        } catch (error) {
-            console.error(error);
-            alert("Error sending email ❌");
-        }
-    }
+                console.error("SEND MAIL ERROR:", data);
 
+                alert(
+                    data.message ||
+                    `Failed to send email. HTTP ${res.status}`
+                );
+            }
+
+    } catch (error) {
+        console.error("Send Email Error:", error);
+
+        alert(
+            error?.message ||
+            "Error sending email ❌"
+        );
+    }
+}
     const [showModal, setShowModal] = useState(false);
     const [selectedRow, setSelectedRow] = useState(null);
 

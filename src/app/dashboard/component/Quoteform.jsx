@@ -61,6 +61,7 @@ export default function QuoteForm({ services, config }) {
 
 
     const [downloading, setDownloading] = useState(null);
+    const [gstEnabled, setGstEnabled] = useState(true);
 
     // ── Selected service rows: { serviceId, qty, quotedPrice } ──
     const [rows, setRows] = useState([
@@ -105,13 +106,16 @@ export default function QuoteForm({ services, config }) {
                 return { ...r, svc, calculated, quoted };
             });
 
-        const subtotal = lineItems.reduce((s, l) => s + l.quoted, 0);
+        const effectiveTaxRate = gstEnabled ? Number(config.taxRate) : 0;
+          const subtotal = lineItems.reduce((s, l) => s + l.quoted, 0);
         const discountAmt = (subtotal * discount) / 100;
-        const taxAmt = ((subtotal - discountAmt) * config.taxRate) / 100;
-        const total = subtotal - discountAmt + taxAmt;
-
+       const taxableAmount = subtotal - discountAmt;
+       const taxAmt = (taxableAmount * effectiveTaxRate) / 100;
+       const total = taxableAmount + taxAmt;
+      
+        
         return { lineItems, subtotal, discountAmt, taxAmt, total };
-    }, [rows, discount, services, config]);
+    }, [rows, discount, services, config, gstEnabled]);
 
     // ── Row helpers ──────────────────────────────────────────────────────────
     function addRow() {
@@ -524,6 +528,18 @@ export default function QuoteForm({ services, config }) {
         e.preventDefault();
         console.log("client-details", client);
         console.log("services-details", rows);
+        const servicesWithGST = rows.map((row) => {
+
+                const quotedPrice = parseFloat( row.quotedPrice || row.price || row.base) || 0;
+
+                const gstValue = gstEnabled ? (quotedPrice * Number(config.taxRate)) / 100 : 0;
+
+                return { ...row,gst: gstValue.toFixed(2)};
+            });
+
+         console.log("services-with-gst", servicesWithGST);
+
+
         const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/quote`,
             {
                 name: client.name,
@@ -531,7 +547,7 @@ export default function QuoteForm({ services, config }) {
                 phone: client.mobile,
                 address: client.address,
                 zip: client.zip,
-                services: rows,
+                services: servicesWithGST,
                 otherDetails: client.otherDetails,
                 advanceAmount: client.advanceAmount,
                 suburbs: client.suburbs,
@@ -917,10 +933,29 @@ export default function QuoteForm({ services, config }) {
                                             </div>
                                         )}
 
-                                        <div className="d-flex justify-content-between small text-secondary">
-                                            { <span>GST ({config.taxRate}%)</span> }
-                                            { <span className="font-monospace">+ {fmt(taxAmt)}</span> }
+                                      <div className="d-flex justify-content-between align-items-center">
+                                        <div className="d-flex align-items-center gap-2">
+                                            <input
+                                                type="checkbox"
+                                                className="form-check-input"
+                                                id="gstEnabled"
+                                                checked={gstEnabled}
+                                                onChange={(e) => setGstEnabled(e.target.checked)}
+                                            />
+
+                                            <label
+                                                htmlFor="gstEnabled"
+                                                className="mb-0"
+                                                style={{ cursor: "pointer" }}
+                                            >
+                                                GST ({config.taxRate}%)
+                                            </label>
                                         </div>
+
+                                        <strong>
+                                            {gstEnabled ? `+ ${fmt(taxAmt)}` : fmt(0)}
+                                        </strong>
+                                    </div>
 
                                         <hr className="text-primary opacity-25 my-1" />
 

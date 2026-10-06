@@ -68,6 +68,7 @@ const bondCleaningDetails =externalData.bondCleaningDetails || {};
 
 
     const [downloading, setDownloading] = useState(null);
+    const [gstEnabled, setGstEnabled] = useState(true);
 
     // ── Selected service rows: { serviceId, qty, quotedPrice } ──
     const [rows, setRows] = useState([
@@ -112,13 +113,21 @@ const bondCleaningDetails =externalData.bondCleaningDetails || {};
                 return { ...r, svc, calculated, quoted };
             });
 
-        const subtotal = lineItems.reduce((s, l) => s + l.quoted, 0);
-        const discountAmt = (subtotal * discount) / 100;
-        const taxAmt = ((subtotal - discountAmt) * config.taxRate) / 100;
-        const total = subtotal - discountAmt + taxAmt;
+            const subtotal = lineItems.reduce((s, l) => s + l.quoted, 0);
 
-        return { lineItems, subtotal, discountAmt, taxAmt, total };
-    }, [rows, discount, services, config]);
+            const discountAmt = (subtotal * discount) / 100;
+
+            const effectiveTaxRate = gstEnabled ? Number(config.taxRate): 0;
+
+            const taxableAmount = subtotal - discountAmt;
+
+            const taxAmt =(taxableAmount * effectiveTaxRate) / 100;
+
+            const total =taxableAmount + taxAmt;
+
+            return {lineItems,subtotal, discountAmt,taxAmt,total };
+
+            }, [rows, discount, services, config, gstEnabled]);
 
     // ── Row helpers ──────────────────────────────────────────────────────────
     function addRow() {
@@ -157,14 +166,39 @@ const bondCleaningDetails =externalData.bondCleaningDetails || {};
         );
     }
 
-    function calcTotals(quote) {
-        const total = quote.services.reduce(
-            (sum, s) => sum + Number(s.quotedPrice),
-            0
-        );
+   function calcTotals(quote) {
+    const services = Array.isArray(quote?.services)
+        ? quote.services
+        : [];
 
-        return { total };
-    }
+    // Subtotal
+    const subtotal = services.reduce(
+        (sum, s) => sum + Number(s.quotedPrice || 0),
+        0
+    );
+
+    // GST is already stored per service
+    const gstAmount = services.reduce(
+        (sum, s) => sum + Number(s.gst || 0),
+        0
+    );
+
+    // GST rate comes from .env when GST amount is available
+    const gstRate =
+        gstAmount > 0
+            ? Number(process.env.NEXT_PUBLIC_GST_RATE || 0)
+            : 0;
+
+    // Final total
+    const total = subtotal + gstAmount;
+
+    return {
+        subtotal,
+        gstRate,
+        gstAmount,
+        total
+    };
+}
 
     function loadScript(src) {
         return new Promise((resolve, reject) => {
@@ -201,8 +235,7 @@ const bondCleaningDetails =externalData.bondCleaningDetails || {};
         const L = 14;   // left margin
         const R = pageW - 14; // right margin
 
-        const { total } = calcTotals(quote);
-
+       const { subtotal,gstRate, gstAmount,total} = calcTotals(quote);
         // ── TOP: Company name + logo area (left) ──────────────────────────
         let y = 14;
 
@@ -343,15 +376,65 @@ const bondCleaningDetails =externalData.bondCleaningDetails || {};
         });
 
         // ── TOTALS (right aligned, below table) ──────────────────────────
-        let ty = doc.lastAutoTable.finalY + 6;
 
-        // Total row
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
-        doc.setTextColor(...MUTED);
-        doc.text("Total:", R - 40, ty);
-        doc.setTextColor(...DARK);
-        doc.text(`A$${Number(total).toFixed(2)}`, R, ty, { align: "right" });
+                let ty = doc.lastAutoTable.finalY + 6;
+
+                // Subtotal
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(9);
+                doc.setTextColor(...MUTED);
+
+                doc.text("Subtotal:", R - 40, ty);
+
+                doc.setTextColor(...DARK);
+
+                doc.text(
+                    `A$${Number(subtotal).toFixed(2)}`,
+                    R,
+                    ty,
+                    { align: "right" }
+                );
+
+
+                // GST
+                ty += 7;
+
+                doc.setTextColor(...MUTED);
+
+                doc.text(
+                    `GST (${Number(gstRate).toFixed(2)}%):`,
+                    R - 40,
+                    ty
+                );
+
+                doc.setTextColor(...DARK);
+
+                doc.text(
+                    `A$${Number(gstAmount).toFixed(2)}`,
+                    R,
+                    ty,
+                    { align: "right" }
+                );
+
+
+                // Total
+                ty += 8;
+
+                doc.setFont("helvetica", "bold");
+                doc.setTextColor(...DARK);
+
+                doc.text(
+                    "Total:",
+                    R - 40,
+                    ty
+                );
+
+                doc.text(
+                    `A$${Number(total).toFixed(2)}`,
+                    R,
+                    ty,
+                    { align: "right" }
+                );
 
         // ty += 7;
         // doc.setTextColor(...MUTED);
@@ -424,24 +507,59 @@ const bondCleaningDetails =externalData.bondCleaningDetails || {};
 
 
     function buildQuoteFromState() {
-        return {
-            id: `${Date.now()}`,
-            invoiceNo: `${Date.now()}`,
-            clientName: client.name,
-            address: client.address,
-            zip: client.zip,
-            advanceAmount: client.advanceAmount,
-            services: rows
-                .filter((r) => r.serviceId || r.name) // skip empty rows
-                .map((r) => ({
-                    name: r.name || r.serviceId,
-                    note: r.note || 1,
-                    price: parseFloat(r.price || r.base) || 0,
-                    quotedPrice: parseFloat(r.quotedPrice || r.price || r.base) || 0,
-                })),
-            total: rows.filter((r) => r.serviceId || r.name).reduce((acc, num) => acc + parseFloat(num.quotedPrice || 0), 0).toFixed(2),
-        };
-    }
+                const services = rows
+                    .filter((r) => r.serviceId || r.name)
+                    .map((r) => {
+                        const quotedPrice =
+                            parseFloat(
+                                r.quotedPrice || r.price || r.base
+                            ) || 0;
+
+                        const gst =
+                            gstEnabled
+                                ? (quotedPrice * Number(config.taxRate)) / 100
+                                : 0;
+
+                        return {
+                            name: r.name || r.serviceId,
+                            note: r.note || 1,
+                            price: parseFloat(r.price || r.base) || 0,
+                            quotedPrice,
+                            gst: gst.toFixed(2),
+                        };
+                    });
+
+                const subtotal = services.reduce(
+                    (sum, s) => sum + Number(s.quotedPrice || 0),
+                    0
+                );
+
+                const gstAmount = services.reduce(
+                    (sum, s) => sum + Number(s.gst || 0),
+                    0
+                );
+
+                const total = subtotal + gstAmount;
+
+                return {
+                    id: `${Date.now()}`,
+                    invoiceNo: `${Date.now()}`,
+                    clientName: client.name,
+                    address: client.address,
+                    zip: client.zip,
+                    advanceAmount: client.advanceAmount,
+
+                    services,
+
+                    subtotal,
+                    gstAmount,
+                    gstRate: gstEnabled
+                        ? Number(config.taxRate)
+                        : 0,
+
+                    total: total.toFixed(2),
+                };
+            }
 
 
 
@@ -527,37 +645,57 @@ const bondCleaningDetails =externalData.bondCleaningDetails || {};
     }
 
     // ── Submit ───────────────────────────────────────────────────────────────
-    async function handleSubmit(e) {
-        e.preventDefault();
-        alert("Submitting quote...");
-        console.log("client-details", client);
-        console.log("services-details", rows);
-        const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/externalquote`,
-            {
-                leadId: leads.id,
-                name: client.name,
-                email: client.email,
-                phone: client.mobile,
-                address: client.address,
-                zip: client.zip,
-                services: rows,
-                otherDetails: client.otherDetails,
-                advanceAmount: client.advanceAmount,
-                suburbs: client.suburbs,
-                quotationType: client.quotationType,
-                cleaningType: client.cleaningType,
-                source: "EXTERNAL",
-            },
-            {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
+   async function handleSubmit(e) {
+    e.preventDefault();
+
+    console.log("client-details", client);
+    console.log("services-details", rows);
+    // Calculate GST amount for each service row
+    const servicesWithGST = rows.map((row) => {
+        const quotedPrice =
+            parseFloat(row.quotedPrice || row.price || row.base) || 0;
+
+        const gstValue = gstEnabled
+            ? (quotedPrice * Number(config.taxRate)) / 100
+            : 0;
+
+        return {
+            ...row,
+            gst: gstValue.toFixed(2),
+        };
+    });
+
+    console.log("services-with-gst", servicesWithGST);
+
+    const response = await axios.post(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/externalquote`,
+        {
+            leadId: leads.id,
+            name: client.name,
+            email: client.email,
+            phone: client.mobile,
+            address: client.address,
+            zip: client.zip,
+
+            // ✅ Save calculated GST amount
+            services: servicesWithGST,
+
+            otherDetails: client.otherDetails,
+            advanceAmount: client.advanceAmount,
+            suburbs: client.suburbs,
+            quotationType: client.quotationType,
+            cleaningType: client.cleaningType,
+            source: "EXTERNAL",
+        },
+        {
+            headers: {
+                Authorization: `Bearer ${token}`
             }
-        )
-        // console.log("response", response);
-        // show
-        setSubmitted(true);
-    }
+        }
+    );
+
+    setSubmitted(true);
+}
 
     // ── Success screen ────────────────────────────────────────────────────────
     if (submitted) {
@@ -975,10 +1113,29 @@ const bondCleaningDetails =externalData.bondCleaningDetails || {};
                             {fmt(subtotal)}
                         </span>
                     </div>
-                    <div className="d-flex justify-content-between small text-secondary">
-                                            { <span>GST ({config.taxRate}%)</span> }
-                                            { <span className="font-monospace">+ {fmt(taxAmt)}</span> }
-                     </div>
+                    <div className="d-flex justify-content-between align-items-center small text-secondary">
+                    <div className="d-flex align-items-center gap-2">
+                        <input
+                            type="checkbox"
+                            className="form-check-input"
+                            id="gstEnabled"
+                            checked={gstEnabled}
+                            onChange={(e) => setGstEnabled(e.target.checked)}
+                        />
+
+                        <label
+                            htmlFor="gstEnabled"
+                            className="mb-0"
+                            style={{ cursor: "pointer" }}
+                        >
+                            GST ({config.taxRate}%)
+                        </label>
+                    </div>
+
+                    <span className="font-monospace">
+                        {gstEnabled ? `+ ${fmt(taxAmt)}` : fmt(0)}
+                    </span>
+                </div>
                     <hr className="text-primary opacity-25 my-1" />
 
                     {/* Total */}
