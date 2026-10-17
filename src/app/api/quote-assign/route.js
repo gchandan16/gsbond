@@ -569,6 +569,10 @@ export const GET = asyncHandler(async (req) => {
 
     yesterday.setDate(today.getDate() - 1);
 
+    const dayBeforeYesterday = new Date();
+    dayBeforeYesterday.setDate(today.getDate() - 2);
+    const dayBeforeYesterdayStr = dayBeforeYesterday.toISOString().split("T")[0];
+
     const todayStr = today.toISOString().split("T")[0];
     const yesterdayStr = yesterday.toISOString().split("T")[0];
 
@@ -619,7 +623,10 @@ export const GET = asyncHandler(async (req) => {
     if (user.role == "operator") {
 
         // Condition to show jobs before 1 day worksing fine
-        const dateCondition = `DATE("quote"."scheduledDate") IN ('${todayStr}', '${tomorrowStr}')`;
+       // const dateCondition = `DATE("quote"."scheduledDate") IN ('${todayStr}', '${tomorrowStr}')`;
+
+
+    const dateCondition = `DATE("quote"."scheduledDate") IN ('${dayBeforeYesterdayStr}', '${yesterdayStr}','${todayStr}','${tomorrowStr}')`;
 
         // making overAll condition if Pending dont show email,phone,address until job get accepted
         console.log("todayStr", todayStr, "yesterdayStr", yesterdayStr, "tomorrowStr", tomorrowStr)
@@ -629,7 +636,7 @@ export const GET = asyncHandler(async (req) => {
         // This condition for the Accept status then show only email, phone, address;
         const acptCondition = `("QuoteAssign"."acceptStatus") = 'Accept'`;
 
-        const combinedCondition = `(${dateCondition} AND ${acptCondition})`;
+       const combinedCondition = `((${dateCondition} AND ${acptCondition}) OR "QuoteAssign"."isCompleted" = true)`;
 
 
         const quotations = await quoteassignmodel.findAll({

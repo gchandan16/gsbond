@@ -60,7 +60,7 @@ export const GET = asyncHandler(async (req, res) => {
     const invoicemodel = await invoiceModel();
 
     const data = await invoicemodel.findAll();
-
+//console.log(data);
     if (!data || data.length == 0) {
         errorResponse("Invoice Data Not Found !!!", 400);
     }

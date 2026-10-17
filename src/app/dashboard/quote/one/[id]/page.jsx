@@ -141,7 +141,33 @@ export default function QuoteDetailPage() {
       );
       console.log("response", response);
       if (!response.data.success) throw new Error(response.data.message || "Failed to load quote");
-      setForm(response.data.data);
+     
+     
+     
+            const quote = response.data.data;
+            const quoteServices = quote.services || [];
+
+            const subtotal = quoteServices.reduce(
+            (sum, s) =>
+            sum +
+            (Number(s.quotedPrice ?? s.price) || 0) *
+            (Number(s.qty) || 1),
+            0
+            );
+
+            const gstAmount = quoteServices.reduce(
+            (sum, s) => sum + (Number(s.gst) || 0),
+            0
+            );
+
+            const total = subtotal + gstAmount;
+
+            setForm({
+            ...quote,
+            calculatedAmount: total,
+            quotatedAmount: total,
+            dueAmount: total - (Number(quote.advanceAmount) || 0),
+            });
       console.log("QUOTATION TYPE:", response.data.data.quotationType);
       console.log("FULL FORM:", response.data.data);
 
@@ -217,15 +243,29 @@ export default function QuoteDetailPage() {
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  const recalc = (services, advance, quotedOverride = null) => {
-    const calc = services.reduce((s, sv) => s + (Number(sv?.quotedPrice || sv?.price) || 0) * (sv.qty || 1), 0);
-    const quoted = quotedOverride !== null ? quotedOverride : calc;
-    return {
-      calculatedAmount: calc,
-      quotatedAmount: quoted,
-      dueAmount: quoted - Number(advance || 0),
-    };
+const recalc = (services, advance, quotedOverride = null) => {
+  const subtotal = services.reduce((sum, service) =>sum +
+      (Number(service?.quotedPrice || service?.price) || 0) *(Number(service?.qty) || 1),
+    0
+  );
+
+  const gstAmount = services.reduce(
+    (sum, service) => sum + (Number(service?.gst) || 0),
+    0
+  );
+
+  const total = subtotal + gstAmount;
+
+  const quoted =
+    quotedOverride !== null ? quotedOverride : total;
+
+  return {
+    calculatedAmount: total,
+    quotatedAmount: quoted,
+    dueAmount: quoted - (Number(advance) || 0),
   };
+};
+
 
   const addService = (svc) => {
     if ((form.services || []).some(s => s.id === svc.id)) return;
@@ -243,10 +283,39 @@ export default function QuoteDetailPage() {
     setForm(f => ({ ...f, services: updated, ...recalc(updated, f.advanceAmount) }));
   };
 
-  const handleAdvanceChange = (val) => {
-    const advance = parseFloat(val) || 0;
-    setForm(f => ({ ...f, advanceAmount: advance, dueAmount: (f.quotatedAmount || 0) - advance }));
-  };
+
+const handleAdvanceChange = (val) => {
+  const advance = Number(val) || 0;
+
+  setForm((f) => {
+    const services = f.services || [];
+
+    const subtotal = services.reduce(
+      (sum, s) =>
+        sum +
+        (Number(s.quotedPrice ?? s.price) || 0) *
+          (Number(s.qty) || 1),
+      0
+    );
+
+    const gstAmount = services.reduce(
+      (sum, s) => sum + (Number(s.gst) || 0),
+      0
+    );
+
+    const total = subtotal + gstAmount;
+
+    return {
+      ...f,
+      advanceAmount: advance,
+      calculatedAmount: total,
+      quotatedAmount: total,
+      dueAmount: total - advance,
+    };
+  });
+};
+
+
 
   const handleSave = async () => {
     try {
@@ -294,36 +363,70 @@ export default function QuoteDetailPage() {
   if (!form) return null;
 
   // build invoice from state
-  function buildInvoiceFromState() {
-    return {
-      id: `${Date.now()}`,
-      invoiceNo: `${Date.now()}`,
-      clientName: form.name,
-      address: form.address,
-      zip: form.zip,
-      advanceAmount: form.advanceAmount,
-      quotatedAmount: form.quotatedAmount,
-      dueAmount: form.dueAmount,
-      services: form.services
-        .filter((r) => r.serviceId || r.name) // skip empty rows
-        .map((r) => ({
-          name: r.name || r.serviceId,
-          note: r.note || 1,
-          price: parseFloat(r.price || r.base) || 0,
-          quotedPrice: parseFloat(r.quotedPrice || r.price || r.base) || 0,
-        })),
-      total: form.services.filter((r) => r.serviceId || r.name).reduce((acc, num) => acc + parseFloat(num.quotedPrice || 0), 0).toFixed(2),
-    };
-  }
+  
+function buildInvoiceFromState() {
+  const invoiceServices = (form.services || [])
+    .filter((r) => r.serviceId || r.name)
+    .map((r) => ({
+      name: r.name || r.serviceId,
+      note: r.note || "",
+      price: Number(r.price || r.base) || 0,
+      quotedPrice: Number(r.quotedPrice || r.price || r.base) || 0,
+      qty: Number(r.qty) || 1,
+      gst: Number(r.gst) || 0,
+    }));
 
-  function calcTotals(quote) {
-    const total = quote.services.reduce(
-      (sum, s) => sum + Number(s.quotedPrice),
-      0
-    );
+  const subtotal = invoiceServices.reduce(
+    (sum, service) => sum + service.quotedPrice,
+    0
+  );
 
-    return { total };
-  }
+  const gstAmount = invoiceServices.reduce(
+    (sum, service) => sum + service.gst,
+    0
+  );
+
+
+  return {
+    id: `${Date.now()}`,
+    invoiceNo: `${Date.now()}`,
+    clientName: form.name,
+    address: form.address,
+    zip: form.zip,
+    advanceAmount: Number(form.advanceAmount) || 0,
+    quotatedAmount: Number(form.quotatedAmount) || 0,
+    dueAmount: Number(form.dueAmount) || 0,
+    services: invoiceServices,
+    subtotal,
+    gstAmount,
+    total: subtotal + gstAmount,
+  };
+}
+
+
+
+function calcTotals(invoice) {
+  const services = Array.isArray(invoice?.services)
+    ? invoice.services
+    : [];
+
+  const subtotal = services.reduce(
+    (sum, service) => sum + Number(service.quotedPrice || 0),
+    0
+  );
+
+  const gstAmount = services.reduce(
+    (sum, service) => sum + Number(service.gst || 0),
+    0
+  );
+
+  return {
+    subtotal,
+    gstAmount,
+    total: subtotal + gstAmount,
+  };
+}
+
 
   function loadScript(src) {
     return new Promise((resolve, reject) => {
@@ -360,7 +463,7 @@ export default function QuoteDetailPage() {
     const L = 14;   // left margin
     const R = pageW - 14; // right margin
 
-    const total = (quote.quotatedAmount);
+const { subtotal, gstAmount, total } = calcTotals(quote);
 
     // ── TOP: Company name + logo area (left) ──────────────────────────
     let y = 14;
@@ -471,11 +574,12 @@ export default function QuoteDetailPage() {
 
     doc.autoTable({
       startY: y,
-      head: [["Item", "Rate", "Amount"]],
+     head: [["Item", "Rate", "Amount", "GST"]],
       body: quote.services.map((s) => [
-        `${s.name}${s.note ? "\n" + s.note : ""}`,
-        `A$${Number(s.price).toFixed(2)}`,
-        `A$${(Number(s.quotedPrice) * (1)).toFixed(2)}`,
+       `${s.name}${s.note ? "\n" + s.note : ""}`,
+      `A$${Number(s.price).toFixed(2)}`,
+      `A$${Number(s.quotedPrice).toFixed(2)}`,
+      `A$${Number(s.gst || 0).toFixed(2)}`,
       ]),
       // theme: "grid",
       headStyles: {
@@ -491,10 +595,10 @@ export default function QuoteDetailPage() {
         minCellHeight: 10,
       },
       columnStyles: {
-        0: { cellWidth: "auto" },
-        1: { halign: "center", cellWidth: 25 },
+         0: { cellWidth: "auto" },
+        1: { halign: "right", cellWidth: 25 },
         2: { halign: "right", cellWidth: 30 },
-        3: { halign: "right", cellWidth: 30 },
+        3: { halign: "right", cellWidth: 25 },
       },
       alternateRowStyles: { fillColor: WHITE },
       margin: { left: L, right: L },
@@ -697,7 +801,10 @@ export default function QuoteDetailPage() {
       setSaving(false);
     }
   };
-
+const totalGST = (form.services || []).reduce(
+      (sum, service) => sum + (Number(service.gst) || 0),
+      0
+    );
   return (
     <div className="min-vh-100 bg-light">
 
@@ -820,7 +927,7 @@ export default function QuoteDetailPage() {
                     <div className="fw-semibold text-dark small text-truncate">
                       {s.name}
                     </div>
-
+           
                     {/* NOTE INPUT */}
                     <input
                       className="form-control form-control-sm mt-1"
@@ -972,9 +1079,37 @@ export default function QuoteDetailPage() {
                 <span className="input-group-text bg-primary bg-opacity-10 text-primary fw-bold border-end-0">$</span>
                 <input className="form-control font-monospace border-start-0 rounded-end-3" type="number"
                   value={form.quotatedAmount || 0}
-                  onChange={e => { const v = parseFloat(e.target.value) || 0; setForm(f => ({ ...f, quotatedAmount: v, dueAmount: v - (f.advanceAmount || 0) })); }} />
+                  onChange={(e) => {
+                        const quoted = Number(e.target.value) || 0;
+
+                        setForm((f) => ({
+                          ...f,
+                          quotatedAmount: quoted,
+                          dueAmount: quoted - (Number(f.advanceAmount) || 0),
+                        }));
+                      }} />
               </div>
             </div>
+
+
+
+          <div className="col-md-6">
+            <FieldLabel>Total GST</FieldLabel>
+
+            <div className="input-group input-group-sm">
+              <span className="input-group-text bg-success bg-opacity-10 text-success fw-bold border-end-0">
+                A$
+              </span>
+
+              <input
+                className="form-control font-monospace border-start-0"
+                type="number"
+                value={totalGST.toFixed(2)}
+                readOnly
+              />
+            </div>
+          </div>
+
             <div className="col-md-6">
               <FieldLabel>Advance Amount</FieldLabel>
               <div className="input-group input-group-sm">

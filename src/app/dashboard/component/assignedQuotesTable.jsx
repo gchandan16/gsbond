@@ -569,6 +569,7 @@ export default function AssignedQuoteTable({ initialQuotes, services, userList }
     }
 
     async function handleUpdate(id, form) {
+     
         setQuotes((qs) => qs.map((q) => q.id === id ? { ...q, ...form } : q));
 
         try {

@@ -97,7 +97,7 @@ async function getUsers() {
 export default async function QuotesPage() {
     const quotes = await getQuotes();
 
-    // console.log("quotes",quotes)
+   // console.log("quotes",quotes)
 
     const services = await getServices()
     // console.log("services",services)

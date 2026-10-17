@@ -50,7 +50,7 @@ async function ensureJsPDF() {
 }
 
 // ── PDF Generator ─────────────────────────────────────────────────────────────
-async function generateInvoicePDF(quote) {
+async function generateInvoicePDF(quote,documentType = "Receipt",outputMode = "download") {
     await ensureJsPDF();
 
     const { jsPDF } = window.jspdf;
@@ -70,6 +70,17 @@ async function generateInvoicePDF(quote) {
     const R = pageW - 14; // right margin
 
     const { total } = calcTotals(quote);
+
+    const gstTotal = (quote.services || []).reduce(
+    (sum, service) => sum + (Number(service.gst) || 0),
+    0
+    );
+
+    console.log("Invoice GST values:", quote.services?.map(s => ({
+    name: s.name,
+    gst: s.gst
+    })));
+    console.log("Invoice GST Total:", gstTotal);
 
     // ── TOP: Company name + logo area (left) ──────────────────────────
     let y = 14;
@@ -115,7 +126,8 @@ async function generateInvoicePDF(quote) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(24);
     doc.setTextColor(...DARK);
-    doc.text("Receipt", R, y, { align: "right" });
+   // doc.text("Receipt", R, y, { align: "right" });
+   doc.text(documentType, R, y, { align: "right" });
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(11);
@@ -211,27 +223,50 @@ async function generateInvoicePDF(quote) {
     });
 
     // ── TOTALS (right aligned, below table) ──────────────────────────
-    let ty = doc.lastAutoTable.finalY + 6;
+    
+        let ty = doc.lastAutoTable.finalY + 6;
 
-    // Total row
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(...MUTED);
-    doc.text("Total:", R - 40, ty);
-    doc.setTextColor(...DARK);
-    doc.text(`A$${Number(quote.quotatedAmount).toFixed(2)}`, R, ty, { align: "right" });
+        // GST Total
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(...MUTED);
+        doc.text("GST Total:", R - 40, ty);
 
-    ty += 7;
-    doc.setTextColor(...MUTED);
-    doc.text("Advance amount:", R - 40, ty);
-    doc.setTextColor(...DARK);
-    doc.text(`A$${Number(quote.advanceAmount).toFixed(2)}`, R, ty, { align: "right" });
+        doc.setTextColor(...DARK);
+        doc.text(`A$${gstTotal.toFixed(2)}`, R, ty, {
+        align: "right",
+        });
 
-    ty += 7;
-    doc.setTextColor(...MUTED);
-    doc.text("Due Amount:", R - 40, ty);
-    doc.setTextColor(...DARK);
-    doc.text(`A$${Number(quote.dueAmount).toFixed(2)}`, R, ty, { align: "right" });
+        ty += 7;
+
+        // Total
+        doc.setTextColor(...MUTED);
+        doc.text("Total:", R - 40, ty);
+        doc.setTextColor(...DARK);
+        doc.text(`A$${Number(quote.quotatedAmount || 0).toFixed(2)}`, R, ty, {
+        align: "right",
+        });
+
+        ty += 7;
+
+        // Advance Amount
+        doc.setTextColor(...MUTED);
+        doc.text("Advance amount:", R - 40, ty);
+        doc.setTextColor(...DARK);
+        doc.text(`A$${Number(quote.advanceAmount || 0).toFixed(2)}`, R, ty, {
+        align: "right",
+        });
+
+        ty += 7;
+
+        // Due Amount
+        doc.setTextColor(...MUTED);
+        doc.text("Due Amount:", R - 40, ty);
+        doc.setTextColor(...DARK);
+        doc.text(`A$${Number(quote.dueAmount || 0).toFixed(2)}`, R, ty, {
+        align: "right",
+        });
+
 
     // ── FOOTER ───────────────────────────────────────────────────────
     // Divider before footer
@@ -279,7 +314,22 @@ async function generateInvoicePDF(quote) {
     doc.text("AC : 310448994", L, ty + 18);
 
     // ── SAVE ─────────────────────────────────────────────────────────
-    doc.save(`Receipt_${quote.invoiceNo || quote.id}_${quote.clientName.replace(/\s+/g, "_")}.pdf`);
+    //doc.save(`Receipt_${quote.invoiceNo || quote.id}_${quote.clientName.replace(/\s+/g, "_")}.pdf`);
+
+    const filePrefix = documentType.replace(/\s+/g, "_");
+
+const fileName = `${filePrefix}_${quote.invoiceNo || quote.id}_${(
+  quote.clientName || "Customer"
+).replace(/\s+/g, "_")}.pdf`;
+
+if (outputMode === "email") {
+  return {
+    blob: doc.output("blob"),
+    fileName,
+  };
+}
+
+doc.save(fileName);
 }
 
 
@@ -303,6 +353,7 @@ async function generateInvoicePDF2(quote) {
     const R = pageW - 14; // right margin
 
     const { total } = calcTotals(quote);
+    const gstTotal = (quote.services || []).reduce((sum, service) => sum + Number(service.gst || 0),0);
 
     // ── TOP: Company name + logo area (left) ──────────────────────────
     let y = 14;
@@ -444,15 +495,32 @@ async function generateInvoicePDF2(quote) {
     });
 
     // ── TOTALS (right aligned, below table) ──────────────────────────
+  
     let ty = doc.lastAutoTable.finalY + 6;
 
-    // Total row
+    // GST Total row
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...MUTED);
+    doc.text("GST Total:", R - 40, ty);
+
+    doc.setTextColor(...DARK);
+    doc.text(`A$${Number(gstTotal).toFixed(2)}`, R, ty, {
+        align: "right",
+    });
+
+    ty += 7;
+
+    // Existing Total row continues here
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(...MUTED);
     doc.text("Total:", R - 40, ty);
     doc.setTextColor(...DARK);
-    doc.text(`A$${Number(total)}`, R, ty, { align: "right" });
+    doc.text(`A$${Number(quote.quotatedAmount || 0).toFixed(2)}`, R, ty, {
+    align: "right",
+    });
+
 
     // ty += 7;
     // doc.setTextColor(...MUTED);
@@ -516,6 +584,9 @@ export default function InvoiceList({ quotes }) {
     const [statusFilter, setStatus] = useState("All");
     const [toast, setToast] = useState(null);
 
+    const [emailQuote, setEmailQuote] = useState(null);
+    const [emailTypes, setEmailTypes] = useState(["Invoice"]);
+
     const ALL_STATUSES = ["All", "Approved",];
 
     function showToast(msg) {
@@ -535,6 +606,109 @@ export default function InvoiceList({ quotes }) {
             setDownloading(null);
         }
     }
+
+ 
+async function handleSendEmail(quote, documentTypes) {
+  if (!documentTypes.length) {
+    showToast("Please select Invoice, Receipt, or Both.");
+    return;
+  }
+
+  try {
+    setDownloading(quote.id);
+
+    const token = localStorage.getItem("authToken");
+    const formData = new FormData();
+
+    formData.append("id", String(quote.id));
+    formData.append("to", quote.email);
+
+    const subject =
+      documentTypes.length === 2
+        ? "Invoice and Receipt - GS Bond Cleaning"
+        : `${documentTypes[0]} - GS Bond Cleaning`;
+
+    formData.append("subject", subject);
+    formData.append(
+      "html",
+      `<p>Dear ${quote.clientName || "Customer"},</p>
+       <p>Please find the selected document(s) attached.</p>
+       <p>Thank you for choosing GS Bond Cleaning.</p>
+       <p>Kind regards,<br/>GS Bond Cleaning</p>`
+    );
+
+    // Generate and attach each selected PDF
+    for (const documentType of documentTypes) {
+      const pdf = await generateInvoicePDF(
+        quote,
+        documentType,
+        "email"
+      );
+
+      if (!pdf?.blob) {
+        throw new Error(`Failed to generate ${documentType} PDF.`);
+      }
+
+      // Same field name for both files.
+      // Backend must support multiple quotePdf files.
+      formData.append("quotePdf", pdf.blob, pdf.fileName);
+    }
+
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/send-invoice-receipt-mail`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      }
+    );
+
+   const responseText = await response.text();
+
+        let data;
+
+        try {
+        data = JSON.parse(responseText);
+        } catch {
+        console.error("Non-JSON API response:", responseText);
+        throw new Error(
+            `Email API returned an invalid response (HTTP ${response.status}). Check the server logs.`
+        );
+        }
+
+        if (!response.ok || !data.success) {
+        throw new Error(
+            data.message || data.error || "Failed to send email."
+        );
+        }
+
+    showToast(`${subject} email sent successfully!`);
+    setEmailQuote(null);
+  } catch (error) {
+    console.error("Send email error:", error);
+    showToast(error.message || "Failed to send email.");
+  } finally {
+    setDownloading(null);
+  }
+}
+
+
+    async function handleDownloadInvoice(quote) {
+    setDownloading(quote.id);
+
+    try {
+        await generateInvoicePDF(quote, "Invoice");
+        showToast(`Invoice ${quote.invoiceNo || quote.id} downloaded successfully!`);
+    } catch (error) {
+        console.error("Invoice download error:", error);
+        showToast("Failed to download invoice. Please try again.");
+    } finally {
+        setDownloading(null);
+    }
+    }
+
     // for the quotation
     async function handleDownload2(quote) {
         setDownloading(quote.id);
@@ -562,6 +736,96 @@ export default function InvoiceList({ quotes }) {
 
     return (
         <>
+
+                {/* Send Email Popup */}
+                {emailQuote && (
+                <div
+                    className="modal d-block"
+                    tabIndex="-1"
+                    role="dialog"
+                    style={{
+                    backgroundColor: "rgba(0,0,0,0.5)",
+                    zIndex: 10000,
+                    }}
+                >
+                    <div className="modal-dialog modal-dialog-centered">
+                    <div className="modal-content rounded-4">
+                        <div className="modal-header">
+                        <h5 className="modal-title">Send Documents by Email</h5>
+                        <button
+                            type="button"
+                            className="btn-close"
+                            onClick={() => setEmailQuote(null)}
+                            disabled={downloading === emailQuote.id}
+                        />
+                        </div>
+
+                        <div className="modal-body">
+                        <p>
+                            Send documents to{" "}
+                            <strong>{emailQuote.clientName}</strong>
+                        </p>
+                        <p className="text-muted small">{emailQuote.email}</p>
+
+                        {["Invoice", "Receipt"].map((type) => (
+                            <div className="form-check mb-3" key={type}>
+                            <input
+                                className="form-check-input"
+                                type="checkbox"
+                                id={`email-${type}`}
+                                checked={emailTypes.includes(type)}
+                                onChange={(e) => {
+                                setEmailTypes((previous) =>
+                                    e.target.checked
+                                    ? [...previous, type]
+                                    : previous.filter((item) => item !== type)
+                                );
+                                }}
+                                disabled={downloading === emailQuote.id}
+                            />
+                            <label
+                                className="form-check-label"
+                                htmlFor={`email-${type}`}
+                            >
+                                {type} PDF
+                            </label>
+                            </div>
+                        ))}
+                        </div>
+
+                        <div className="modal-footer">
+                        <button
+                            type="button"
+                            className="btn btn-light"
+                            onClick={() => setEmailQuote(null)}
+                            disabled={downloading === emailQuote.id}
+                        >
+                            Cancel
+                        </button>
+
+                        <button
+                            type="button"
+                            className="btn btn-primary"
+                            disabled={
+                            downloading === emailQuote.id ||
+                            emailTypes.length === 0
+                            }
+                            onClick={() =>
+                            handleSendEmail(emailQuote, emailTypes)
+                            }
+                        >
+                            {downloading === emailQuote.id
+                            ? "Sending..."
+                            : "Send Email"}
+                        </button>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+                )}
+
+
+
             {/* Toast */}
             {toast && (
                 <div
@@ -621,6 +885,7 @@ export default function InvoiceList({ quotes }) {
                                     <input type="checkbox" className="form-check-input" />
                                 </th>
                                 <th>Invoice No</th>
+                                 <th>Quote ID</th>
                                 <th>Client</th>
                                 {/* <th className="d-none d-lg-table-cell">Services</th> */}
                                 <th className="text-end fw-bold">Total</th>
@@ -656,12 +921,20 @@ export default function InvoiceList({ quotes }) {
                                             <td>
                                                 <div>
                                                     <span className="badge bg-primary bg-opacity-10 text-primary font-monospace px-2 py-2 rounded-3 small fw-semibold d-block mb-1">
+                                                        {quote.QuoteId}
+                                                    </span>
+                                                    {/* <span className="text-secondary" style={{ fontSize: 11 }}>{quote.id}</span> */}
+                                                </div>
+                                            </td>
+                                        {/* Quote ID */}
+                                            <td>
+                                                <div>
+                                                    <span className="badge bg-primary bg-opacity-10 text-primary font-monospace px-2 py-2 rounded-3 small fw-semibold d-block mb-1">
                                                         {quote.id}
                                                     </span>
                                                     {/* <span className="text-secondary" style={{ fontSize: 11 }}>{quote.id}</span> */}
                                                 </div>
                                             </td>
-
                                             {/* Client */}
                                             <td>
                                                 <div className="d-flex align-items-center gap-2">
@@ -708,25 +981,53 @@ export default function InvoiceList({ quotes }) {
                                             </td>
 
                                             {/* ── Download Invoice Button ── */}
-                                            <td className="text-center">
-                                                {/* {quote.status == "Approved" && ( */}
+                                           
+                                                {/* Action Buttons */}
+                                                <td>
+                                                <div className="d-flex align-items-center justify-content-center gap-2 flex-nowrap">
+
+                                                    {/* Download Receipt */}
                                                     <button
-                                                    className="btn btn-primary btn-sm rounded-3 px-3 d-flex align-items-center gap-2 mx-auto"
+                                                    type="button"
+                                                    className="btn btn-outline-success btn-sm text-nowrap"
                                                     onClick={() => handleDownload(quote)}
-                                                    disabled={isLoading}
-                                                >
-                                                    {isLoading ? (
-                                                        <>
-                                                            <span className="spinner-border spinner-border-sm" role="status" />
-                                                            <span>Generating…</span>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <span>⬇️</span>
-                                                            <span>Invoice </span>
-                                                        </>
-                                                    )}
-                                                </button>
+                                                    disabled={downloading === quote.id}
+                                                    title="Download Receipt PDF"
+                                                    >
+                                                    <i className="bi bi-receipt me-1"></i>
+                                                    Receipt
+                                                    </button>
+
+                                                    {/* Download Invoice */}
+                                                    <button
+                                                    type="button"
+                                                    className="btn btn-primary btn-sm text-nowrap"
+                                                    onClick={() => handleDownloadInvoice(quote)}
+                                                    disabled={downloading === quote.id}
+                                                    title="Download Invoice PDF"
+                                                    >
+                                                    <i className="bi bi-file-earmark-pdf me-1"></i>
+                                                    Invoice
+                                                    </button>
+
+                                                    {/* Send Receipt Email */}
+                                                    <button
+                                                    type="button"
+                                                    className="btn btn-outline-primary btn-sm text-nowrap"
+                                                    onClick={() => {
+                                                    setEmailQuote(quote);
+                                                    setEmailTypes(["Invoice"]);
+                                                    }}
+                                                    title="Choose Invoice or Receipt to email"
+                                                    >
+                                                    <i className="bi bi-envelope me-1"></i>
+                                                    Send Email
+                                                    </button>
+
+                                                </div>
+
+                                                  
+                                                  
                                                     {/* <button
                                                     className="btn btn-primary btn-sm rounded-3 px-3 d-flex align-items-center gap-2 mx-auto"
                                                     onClick={() => handleDownload2(quote)}

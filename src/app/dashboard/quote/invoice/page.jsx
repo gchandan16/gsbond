@@ -26,6 +26,7 @@ async function getQuotes() {
 //   .filter(user => user.status === "Approved")
   .map((user, i) => ({
     id: user.id,
+    QuoteId: user.QuoteId,
     invoiceNo: `${user.QuoteData.id}${Date.now()}`,
     clientName: user.QuoteData.name,
     email: user.QuoteData.email,

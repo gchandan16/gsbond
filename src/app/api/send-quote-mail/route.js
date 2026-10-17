@@ -20,20 +20,22 @@ export async function POST(req) {
         const to = formData.get("to");
         const subject = formData.get("subject");
         const html = formData.get("html");
-        const quotePdf = formData.get("quotePdf");
+        const quotePdfs = formData.getAll("quotePdf");
 
         console.log("Quote ID:", id);
         console.log("Recipient:", to);
         console.log("PDF:", quotePdf?.name);
         console.log("PDF size:", quotePdf?.size);
 
-        if (!to) {
+       if (!to) {
             throw new Error("Recipient email is required");
-        }
+            }
 
-        if (!quotePdf) {
-            throw new Error("Quotation PDF is required");
-        }
+
+        if (quotePdfs.length === 0) {
+            throw new Error("At least one PDF attachment is required");
+            }
+
 
         const pdfBuffer = Buffer.from(
             await quotePdf.arrayBuffer()
