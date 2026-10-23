@@ -20,7 +20,7 @@ export const POST = asyncHandler(async (req) => {
     if (!quotemodel) throw new ApiError("Quote model not intitalised", 400)
     if (!quotehistorymodel) throw new AppError("Quote history model not intitalised", 400)
 
-    const { name, email, phone, address, zip, services, advanceAmount, suburbs } = await req.json();
+    const { name, email, phone, address, zip, services, advanceAmount, suburbs, quotationType, cleaningType } = await req.json();
 
     if (!name || !email || !services) throw new AppError("Name,Email,Services are required", 400)
 
@@ -47,7 +47,9 @@ export const POST = asyncHandler(async (req) => {
         advanceAmount: advanceAmount || "0",
         dueAmount: amountLeft,
         shareToken: uuidv4(),
-        suburbs: suburbs
+        suburbs: suburbs,
+        quotationType: quotationType,
+        cleaningType: cleaningType
     })
 
     if (!quote) throw new ApiError("Quote creation failed", 400);

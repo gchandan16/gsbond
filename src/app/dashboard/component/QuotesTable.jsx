@@ -1042,6 +1042,44 @@ function UpdateModal({ quote, onClose, onSave, Services }) {
 
     const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
+    
+   
+const calculateQuoteTotals = (services = [], advance = 0) => {
+    const subtotal = services.reduce(
+        (sum, service) =>
+            sum + (Number(service?.quotedPrice ?? service?.price) || 0) *
+                (Number(service?.qty) || 1),
+        0
+    );
+
+    const gstAmount = services.reduce(
+        (sum, service) =>
+            sum + (Number(service?.gst) || 0) *
+                (Number(service?.qty) || 1),
+        0
+    );
+
+    const total = Number((subtotal + gstAmount).toFixed(2));
+    const advanceAmount = Number(advance) || 0;
+
+    return {
+        gstAmount: Number(gstAmount.toFixed(2)),
+        calculatedAmount: total,
+        quotedAmount: total,
+        dueAmount: Number((total - advanceAmount).toFixed(2)),
+    };
+};
+useEffect(() => {
+    setForm((current) => ({
+        ...current,
+        ...calculateQuoteTotals(
+            current.services || [],
+            current.advanceAmount
+        ),
+    }));
+}, []);
+
+
     const handleCopyLink = () => {
         const link = `${window.location.origin}/share/${quote.shareToken}`;
         navigator.clipboard.writeText(link);
@@ -1102,7 +1140,7 @@ function UpdateModal({ quote, onClose, onSave, Services }) {
                                 <input className="form-control rounded-3" value={form.zip} onChange={(e) => set("zip", e.target.value)} />
                             </div>
 
-                           {quote.source === "EXTERNAL" && (
+                           {quote.quotationType != null && quote.cleaningType != null && (
                                 <>
                                     <div className="col-md-3">
                                         <label className="form-label small fw-semibold text-dark mb-1">
@@ -1276,7 +1314,7 @@ function UpdateModal({ quote, onClose, onSave, Services }) {
                                                         const updated = form.services.filter((_, idx) => idx !== i);
                                                         const total = updated.reduce((sum, sv) => sum + (Number(sv.price) || 0) * (sv.qty || 1), 0);
                                                         const dueamount = total - Number(form.advanceAmount);
-                                                        setForm((f) => ({ ...f, services: updated, calculatedAmount: total, quotedAmount: total, dueAmount: dueamount }));
+                                                        setForm((f) => ({ ...f, services: updated,...calculateQuoteTotals(updated, f.advanceAmount), }));
                                                     }}
                                                 />
                                             </span>
@@ -1324,9 +1362,11 @@ function UpdateModal({ quote, onClose, onSave, Services }) {
                                                                 if (isSelected) return;
                                                                 // Add with qty: 1 by default
                                                                 const updated = [...(form.services || []), { ...s, qty: 1 }];
-                                                                const total = updated.reduce((sum, sv) => sum + (Number(sv.price) || 0) * (sv.qty || 1), 0);
-                                                                const dueamount = total - Number(form.advanceAmount);
-                                                                setForm((f) => ({ ...f, services: updated, calculatedAmount: total, quotedAmount: total, dueAmount: dueamount }));
+                                                                //const total = updated.reduce((sum, sv) => sum + (Number(sv.price) || 0) * (sv.qty || 1), 0);
+                                                                //const dueamount = total - Number(form.advanceAmount);
+                                                               // setForm((f) => ({ ...f, services: updated, calculatedAmount: total, quotedAmount: total, dueAmount: dueamount }));
+                                                                //setDropdownOpen(false);
+                                                                setForm((f) => ({...f,services: updated,...calculateQuoteTotals(updated, f.advanceAmount),}));
                                                                 setDropdownOpen(false);
                                                             }}
                                                         >
@@ -1350,6 +1390,31 @@ function UpdateModal({ quote, onClose, onSave, Services }) {
                                     <input type="number" disabled className="form-control border-start-0 rounded-end-3 font-monospace" value={form.calculatedAmount} onChange={(e) => set("calculatedAmount", parseFloat(e.target.value) || 0)} />
                                 </div>
                             </div>
+
+                            <div className="col-md-4">
+                            <label className="form-label small fw-semibold text-dark mb-1">
+                                GST Amount ($)
+                            </label>
+
+                            <div className="input-group">
+                                <span className="input-group-text bg-primary bg-opacity-10 text-primary border-end-0 fw-bold">
+                                    $
+                                </span>
+
+                                <input
+                                    type="number"
+                                    disabled
+                                    className="form-control border-start-0 rounded-end-3 font-monospace"
+                                    value={(form.services || [])
+                                            .reduce((sum, service) => {
+                                                return sum +
+                                                    (Number(service?.gst) || 0) *
+                                                    (Number(service?.qty) || 1);
+                                            }, 0)
+                                            .toFixed(2)}
+                                />
+                            </div>
+                        </div>
                             <div className="col-md-4">
                                 <label className="form-label small fw-semibold text-dark mb-1">Quoted Amount ($)</label>
                                 <div className="input-group">
@@ -1363,7 +1428,7 @@ function UpdateModal({ quote, onClose, onSave, Services }) {
                                             setForm(f => ({
                                                 ...f,
                                                 quotedAmount: quoted,
-                                                dueAmount: quoted - (f.advanceAmount || 0),  // ✅ recalc due
+                                                dueAmount: quoted - (Number(f.advanceAmount) || 0),
                                             }));
                                         }}
                                     />
@@ -1382,7 +1447,9 @@ function UpdateModal({ quote, onClose, onSave, Services }) {
                                             setForm(f => ({
                                                 ...f,
                                                 advanceAmount: advance,
-                                                dueAmount: (f.quotedAmount || 0) - advance,  // ✅ recalc due
+                                                 dueAmount: Number(
+                                                    ((Number(f.quotedAmount) || 0) - advance).toFixed(2)
+                                                ),
                                             }));
                                         }}
                                     />

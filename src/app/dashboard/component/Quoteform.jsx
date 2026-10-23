@@ -55,6 +55,8 @@ export default function QuoteForm({ services, config }) {
         otherDetails: "",
         advanceAmount: "",
         suburbs: "",
+        quotationType: "",
+        cleaningType: "",
 
     });
 
@@ -551,6 +553,8 @@ export default function QuoteForm({ services, config }) {
                 otherDetails: client.otherDetails,
                 advanceAmount: client.advanceAmount,
                 suburbs: client.suburbs,
+                quotationType: client.quotationType,
+                cleaningType: client.cleaningType,
             },
             {
                 headers: {
@@ -706,6 +710,61 @@ export default function QuoteForm({ services, config }) {
                             />
                         </FormField>
                     </div>
+
+                    
+                    <div className="col-md-3">
+                        <FormField label="Service Type" required>
+                            <select
+                                className="form-select rounded-3"
+                                value={client.quotationType || ""}
+                                required
+                                onChange={(e) => {
+                                    setClient((prev) => ({
+                                        ...prev,
+                                        quotationType: e.target.value,
+                                        cleaningType: "",
+                                    }));
+                                }}
+                            >
+                                <option value="">— Select Type —</option>
+                                <option value="OnceOff">Once-Off</option>
+                                <option value="Recurring">Recurring</option>
+                            </select>
+                        </FormField>
+                    </div>
+
+                    <div className="col-md-3">
+                        <FormField label="Cleaning Type" required>
+                            <select
+                                className="form-select rounded-3"
+                                value={client.cleaningType || ""}
+                                required
+                                disabled={!client.quotationType}
+                                onChange={(e) => {
+                                    setClient((prev) => ({
+                                        ...prev,
+                                        cleaningType: e.target.value,
+                                    }));
+                                }}
+                            >
+                                <option value="">— Select Type —</option>
+
+                                {client.quotationType === "OnceOff" && (
+                                    <option value="One-Time">One-Time</option>
+                                )}
+
+                                {client.quotationType === "Recurring" && (
+                                    <>
+                                        <option value="Daily">Daily</option>
+                                        <option value="Weekly">Weekly</option>
+                                        <option value="FortNightly">FortNightly</option>
+                                        <option value="Monthly">Monthly</option>
+                                    </>
+                                )}
+                            </select>
+                        </FormField>
+                    </div>
+
 
                 </div>
             </SectionCard>
